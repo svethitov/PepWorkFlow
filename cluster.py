@@ -1,6 +1,5 @@
 '''Clustering and utils for clustering used for the peptides'''
 
-import plotly.plotly as py
 from plotly.offline import plot
 import plotly.graph_objs as go
 from random import randint
@@ -8,7 +7,7 @@ import numpy as np
 from sklearn.cluster import DBSCAN, MeanShift, estimate_bandwidth
 from sklearn.preprocessing import robust_scale
 
-def getfeaturevector(seqrecords):
+def getfeaturesvector(seqrecords):
     '''Extract feature vector from iterable object of SwissProt Records'''
     seqdict = dict()
     for record in seqrecords:
@@ -46,10 +45,10 @@ def getfeaturevector(seqrecords):
     return seqdict
 
 def listtodict(recordlist: list):
-    '''Returns dictionary object from list'''
+    '''Returns dictionary object from iterable'''
     return {item[0]: item[1] for item in recordlist}
 
-def plot3dscatter(recsdict: dict or list, xaxis=1, yaxis=2, zaxis=3, n_clusters=1):
+def plot3dscatter(recsdict: dict or list, xaxis=1, yaxis=2, zaxis=3):
     '''Given dictionary or list filled with features vectors plot a 3d scatter plot3dscatterplot
     You should also provide features for the different axes.
     Mapping for axes:
@@ -141,8 +140,18 @@ def labelclusters(recordslist: list, labels: list):
         record[1].append(labels[idx])
     return listtodict(recordslist)
 
+def removeprevlabel(recsdict):
+    '''Removes previous feature label in the dictionary'''
+    print('Removing previous labels, if any ...')
+    for value in recsdict.values():
+        if len(value) > 5:
+            value = value[0:4]
+
+    return recsdict
+
 def clustermeanshift(recsdict: dict):
     '''Clusters proteins by MeanShift Algorithm'''
+    recsdict = removeprevlabel(recsdict)
     x_scaled, recordslist = scale(recsdict)
     print('Calculating Bandwidth...')
     bandwidth = estimate_bandwidth(x_scaled, n_jobs=-1)
@@ -160,6 +169,7 @@ def clustermeanshift(recsdict: dict):
 
 def clusterdbscan(recsdict, eps=0.5, min_samples=5):
     '''Clusters proteins by DBSCAN Algorithm'''
+    recsdict = removeprevlabel(recsdict)
     x_scaled, recordslist = scale(recsdict)
     print('Clustering using DBSCAN ...')
     mydbscan = DBSCAN(eps=eps, min_samples=min_samples).fit(x_scaled)

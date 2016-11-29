@@ -2,7 +2,6 @@
 connects to UniProt downloads the record and
 saves all the records in Biopyhton library'''
 
-
 import statistics
 import pickle
 from Bio import ExPASy
@@ -79,7 +78,7 @@ def writefasta(seqrecords, filename):
     '''Writes records to fasta file ready for alignment'''
     workingseqs = []
     for record in seqrecords:
-        print('Preparing {} for writing to file...')
+        print('Preparing {} for writing to file...'.format(record.accessions[0]))
         workingseqs.append(SeqRecord(Seq(record.sequence), id=record.accessions[0]))
     print('Writing fasta file ...')
     SeqIO.write(workingseqs, filename, 'fasta')
