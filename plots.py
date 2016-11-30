@@ -32,21 +32,38 @@ def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
         uniqueclusters = set(1)
 
     for cluster in uniqueclusters:
+        xvalues = \
+            [item[1][xaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
+        yvalues = \
+            [item[1][yaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
+        zvalues = \
+            [item[1][zaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
+
         if cluster < 0:
             size = 4
         else:
             size = 8
+            mesh = go.Mesh3d(
+                x=xvalues,
+                y=yvalues,
+                z=zvalues,
+                color='87CEFA',
+                opacity=0.1
+            )
+            data.append(mesh)
+
+        textvalues = [item[0] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
         trace = go.Scatter3d(
-            x=[item[1][xaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster],
-            y=[item[1][yaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster],
-            z=[item[1][zaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster],
+            x=xvalues,
+            y=yvalues,
+            z=zvalues,
             mode='markers',
             marker=dict(
                 color='rgb(' + str(randint(0, 255)) + ',' + str(randint(0, 255)) + \
                     ',' + str(randint(0, 255)) + ')',
                 size=size
             ),
-            text=[item[0] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster],
+            text=textvalues,
             name='Cluster: {}'.format(cluster),
             opacity=0.8
         )
@@ -84,6 +101,10 @@ def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
 
 def hist(vector, filename):
     '''Plots histogram using plotly'''
-    data = [go.histogram(x=vector)]
+    data = [go.Histogram(x=vector, xbins=dict(
+        start=0,
+        size=25,
+        end=max(vector)
+    ))]
     fig = go.Figure(data=data)
     plot(fig, filename=filename)

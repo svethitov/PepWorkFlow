@@ -1,0 +1,4 @@
+*.bin
+*.html
+__pycache__/
+list.list

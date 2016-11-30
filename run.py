@@ -20,6 +20,7 @@ def main():
     eps = 1.2
     min_samples = 2
     while True:
+        print('')
         print('Clustering will be performed with the following settings:')
         print('eps: {}, min_samples: {}'.format(eps, min_samples))
         answer = input('Type "no" if you want to change them:')
@@ -33,7 +34,8 @@ def main():
         axes = [1, 2, 3]
         filename = '3dscatter.html'
         while True:
-            print(' Plotting 3D graph with the following settings:')
+            print('')
+            print('Plotting 3D graph with the following settings:')
             print('Name: {}'.format(filename))
             print('x: {}, y: {}, z: {}'.format(axes[0], axes[1], axes[2]))
             answer = input('Type "no" if you want to change them:')
@@ -46,6 +48,13 @@ def main():
 
             plot3dscatter(clustersdict, filename=filename, xaxis=axes[0],
                           yaxis=axes[1], zaxis=axes[2])
+            answer = input('Are you happy with the plot? Type "y" to continue: ')
+            if answer == 'y':
+                break
+
+        answer = input('Are you happy with the result of the clustering? Type "y" to continue: ')
+        if answer == 'y':
+            break
 
     subsetseqs(pdbseqsset=pdbswissrecords, clusterdict=clustersdict)
 
