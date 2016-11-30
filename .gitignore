@@ -2,3 +2,7 @@
 *.html
 __pycache__/
 list.list
+*.fasta
+*.aln
+*.swp
+tcoffee/

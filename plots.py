@@ -38,29 +38,32 @@ def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
             [item[1][yaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
         zvalues = \
             [item[1][zaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
+        color = 'rgb(' + str(randint(0, 255)) + ',' + str(randint(0, 255)) + \
+                    ',' + str(randint(0, 255)) + ')'
+        textvalues = [item[0] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
 
         if cluster < 0:
-            size = 4
+            size = 3
         else:
-            size = 8
+            size = 4
             mesh = go.Mesh3d(
                 x=xvalues,
                 y=yvalues,
                 z=zvalues,
-                color='87CEFA',
-                opacity=0.1
+                color=color,
+                opacity=0.05,
+                alphahull=2,
+                name='Cluster: {}'.format(cluster),
             )
             data.append(mesh)
 
-        textvalues = [item[0] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
         trace = go.Scatter3d(
             x=xvalues,
             y=yvalues,
             z=zvalues,
             mode='markers',
             marker=dict(
-                color='rgb(' + str(randint(0, 255)) + ',' + str(randint(0, 255)) + \
-                    ',' + str(randint(0, 255)) + ')',
+                color=color,
                 size=size
             ),
             text=textvalues,
@@ -101,10 +104,7 @@ def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
 
 def hist(vector, filename):
     '''Plots histogram using plotly'''
-    data = [go.Histogram(x=vector, xbins=dict(
-        start=0,
-        size=25,
-        end=max(vector)
-    ))]
+    data = [go.Histogram(x=vector, xbins=dict(start=0, size=10, end=max(vector) + 25),
+                         marker=dict(color='ADD8E6'))]
     fig = go.Figure(data=data)
     plot(fig, filename=filename)

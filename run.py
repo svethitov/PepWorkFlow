@@ -4,16 +4,18 @@
 from cluster import *
 from extract import *
 from plots import plot3dscatter
+import subprocess
+import os
 
 def main():
     '''Main function for the WorkFlow'''
-    print('The script expect list.list file:')
+    print('The script expect list.list file or PDBRecordsSet.bin:')
     swissrecords = getrecords('list.list')
     getseqstat(swissrecords, 'all_records.html')
-    input('Press any key to continue ...')
+    input('Press Enter key to continue ...')
     pdbswissrecords = getpdb(swissrecords)
     getseqstat(pdbswissrecords, 'pdb_cross-refed_records.html')
-    input('Press any key to continue ...')
+    input('Press Enter key to continue ...')
     savebinary('PDBRecordsSet.bin', pdbswissrecords)
     featuresvector = getfeaturesvector(pdbswissrecords)
 
@@ -57,6 +59,25 @@ def main():
             break
 
     subsetseqs(pdbseqsset=pdbswissrecords, clusterdict=clustersdict)
+
+    # get all fasta files corresponding to clusters
+    print('Reading fastas and starting t-coffee alignment ...')
+    fastas = []
+    for clusterfile in os.listdir():
+        if clusterfile.endswith('.fasta'):
+            fastas.append(clusterfile)
+
+    os.mkdir('tcoffee')
+    os.chdir('tcoffee')
+    for cluster in fastas:
+        current = cluster.split('.')[0]
+        print('Working on {}'.format(current))
+        os.mkdir(current)
+        os.chdir(current)
+        filepath = os.path.join(os.pardir, os.pardir, cluster)
+        command = 't_coffee -seq {} -mode accurate -pdb_type dn'.format(filepath)
+        subprocess.run(command.split())
+        os.chdir(os.pardir)
 
 
 if __name__ == '__main__':
