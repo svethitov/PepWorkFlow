@@ -9,7 +9,7 @@ from Bio import SwissProt
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-import matplotlib.pyplot as plt
+from plots import hist
 
 
 def getrecords(filename):
@@ -42,7 +42,7 @@ def getpdb(recordlist):
     print('{} records found to have PDB cross-reference'.format(len(pdbrecords)))
     return pdbrecords
 
-def getseqstat(seqrecords):
+def getseqstat(seqrecords, filename):
     '''Gives basic statistics for the sequences in iterable object
     Uses matplotlyb.pyplot'''
     print('Getting sequences lengths...')
@@ -54,9 +54,7 @@ def getseqstat(seqrecords):
     print('Minimum length: {}'.format(min(lens)))
     print('Range: {}'.format(max(lens)-min(lens)))
     print(sorted(lens))
-    plt.hist(lens, bins='auto')
-    plt.title('Histogram of Sequences lengths')
-    plt.show()
+    hist(lens, filename)
 
 def gettrimmedseq(seqrecords, minlength, maxlength):
     '''Returns set of SwissProt Records filtered by sequence length.
