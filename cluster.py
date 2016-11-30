@@ -5,6 +5,10 @@ import numpy as np
 from sklearn.cluster import DBSCAN, MeanShift, estimate_bandwidth
 from sklearn.preprocessing import robust_scale
 
+def toint(string):
+    '''Implements int() function but checks if there is special chraracter in the string'''
+    return int(''.join(e for e in string if e.isalnum()))
+
 def getfeaturesvector(seqrecords):
     '''Extract feature vector from iterable object of SwissProt Records'''
     seqdict = dict()
@@ -14,14 +18,14 @@ def getfeaturesvector(seqrecords):
         print('Searching for PEPTIDE annotation...')
         for feature in record.features:
             if feature[0] == 'PEPTIDE':
-                peptidelength = int(feature[2]) - int(feature[1]) + 1
+                peptidelength = toint(feature[2]) - toint(feature[1]) + 1
                 print('PEPTIDE length found: {} AA'.format(peptidelength))
                 break
         if peptidelength == 0:
             print('Searching for CHAIN annotation...')
             for feature in record.features:
                 if feature[0] == 'CHAIN':
-                    peptidelength = int(feature[2]) - int(feature[1]) + 1
+                    peptidelength = toint(feature[2]) - toint(feature[1]) + 1
                     print('CHAIN length found: {} AA'.format(peptidelength))
                     break
         helix, turn, strand = 0, 0, 0
@@ -29,11 +33,11 @@ def getfeaturesvector(seqrecords):
         print('Getting secondary structure...')
         for feature in record.features:
             if feature[0] == 'HELIX':
-                helix += (int(feature[2]) - int(feature[1]) + 1)
+                helix += (toint(feature[2]) - toint(feature[1]) + 1)
             elif feature[0] == 'TURN':
-                turn += (int(feature[2]) - int(feature[1]) + 1)
+                turn += (toint(feature[2]) - toint(feature[1]) + 1)
             elif feature[0] == 'STRAND':
-                strand += (int(feature[2]) - int(feature[1]) + 1)
+                strand += (toint(feature[2]) - toint(feature[1]) + 1)
             elif feature[0] == 'DISULFID':
                 disulfid += 1
         print('HELIX: {}, STRAND {}, TURN {}, DISULFID {}'.format(\
