@@ -14,6 +14,25 @@ def toint(number):
     else:
         return number
 
+def secondarystructuretrim(startaa, endaa, featurestartaa, featureendaa):
+    '''Trimmes length of Secondary Structure features if they are outside
+    of CHAIN or PEPTIDE sequence'''
+    if startaa > featureendaa or endaa < featurestartaa:
+        #This are the cases where the feature is outside the region of interest
+        return 0
+
+    if featurestartaa < startaa:
+        start = startaa
+    else:
+        start = featurestartaa
+
+    if featureendaa > endaa:
+        end = endaa
+    else:
+        end = featureendaa
+
+    return end - start + 1
+
 def getfeaturesvector(seqrecords):
     '''Extract feature vector from iterable object of SwissProt Records'''
     seqdict = dict()
@@ -25,6 +44,8 @@ def getfeaturesvector(seqrecords):
             if feature[0] == 'CHAIN':
                 peptidelength = toint(feature[2]) - toint(feature[1]) + 1
                 print('CHAIN length found: {} AA'.format(peptidelength))
+                startaa = toint(feature[1])
+                endaa = toint(feature[2])
                 break
         if peptidelength == 0:
             print('Searching for PEPTIDE annotation...')
@@ -32,18 +53,26 @@ def getfeaturesvector(seqrecords):
                 if feature[0] == 'PEPTIDE':
                     peptidelength = toint(feature[2]) - toint(feature[1]) + 1
                     print('PEPTIDE length found: {} AA'.format(peptidelength))
+                    startaa = toint(feature[1])
+                    endaa = toint(feature[2])
                     break
         helix, turn, strand = 0, 0, 0
         disulfid = 0
         print('Getting secondary structure...')
         for feature in record.features:
             if feature[0] == 'HELIX':
-                helix += (toint(feature[2]) - toint(feature[1]) + 1)
+                helix += secondarystructuretrim(startaa=startaa, endaa=endaa,
+                                                featurestartaa=toint(feature[1]),
+                                                featureendaa=toint(feature[2]))
             elif feature[0] == 'TURN':
-                turn += (toint(feature[2]) - toint(feature[1]) + 1)
+                turn += secondarystructuretrim(startaa=startaa, endaa=endaa,
+                                               featurestartaa=toint(feature[1]),
+                                               featureendaa=toint(feature[2]))
             elif feature[0] == 'STRAND':
-                strand += (toint(feature[2]) - toint(feature[1]) + 1)
-            elif feature[0] == 'DISULFID':
+                strand += secondarystructuretrim(startaa=startaa, endaa=endaa,
+                                                 featurestartaa=toint(feature[1]),
+                                                 featureendaa=toint(feature[2]))
+            elif feature[0] == 'DISULFID' and feature[1] >= startaa and feature[2] <= endaa:
                 disulfid += 1
         print('HELIX: {}, STRAND {}, TURN {}, DISULFID {}'.format(\
             helix, strand, turn, disulfid))

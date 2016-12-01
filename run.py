@@ -6,7 +6,7 @@ import os
 import sys
 import shutil
 from cluster import getfeaturesvector, clusterdbscan
-from extract import getseqstat, savebinary, loadbinary, getrecords, getpdb, subsetseqs
+from extract import getseqstat, savebinary, loadbinary, getrecords, getpdb, subsetseqs, writefasta
 from plots import plot3dscatter
 
 
@@ -80,6 +80,9 @@ def main():
     for clusterfile in os.listdir():
         if clusterfile.endswith('.fasta'):
             fastas.append(clusterfile)
+
+    # write all records with pdb cross-ref
+    writefasta(pdbswissrecords, 'allpdbrecords.fasta')
 
     if os.path.isdir('./tcoffee'):
         print('Deleting old tcoffee directory ...')

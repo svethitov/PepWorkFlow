@@ -74,9 +74,9 @@ def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
 
     axisnames = {
         1: 'Peptide length',
-        2: 'Helix %',
-        3: 'Strand %',
-        4: 'Turn %',
+        2: 'Helix',
+        3: 'Strand',
+        4: 'Turn',
         5: 'Disulfid bridges #'
     }
     layout = go.Layout(
