@@ -5,8 +5,8 @@ import subprocess
 import os
 import sys
 import shutil
-from cluster import *
-from extract import *
+from cluster import getfeaturesvector, clusterdbscan
+from extract import getseqstat, savebinary, loadbinary, getrecords, getpdb, subsetseqs
 from plots import plot3dscatter
 
 
@@ -93,8 +93,18 @@ def main():
         os.mkdir(current)
         os.chdir(current)
         filepath = os.path.join(os.pardir, os.pardir, cluster)
+        command = 't_coffee -other_pg seq_reformat -in {} -output sim_idscore'\
+                    .format(filepath)
+        print('Estimating diversity and writing to file ...')
+        with open('sim_idscore.txt', 'w') as simfile:
+            subprocess.run(command.split(), stdout=simfile)
         command = 't_coffee -seq {} -mode accurate -pdb_type dn'.format(filepath)
+        print('Running alignment ...')
         subprocess.run(command.split())
+        command = 't_coffee -other_pg seq_reformat -in {}.aln -output sim'.format(current)
+        print('Estimating diversity on the alignment and writing to file ...')
+        with open('sim.txt', 'w') as simfile:
+            subprocess.run(command.split(), stdout=simfile)
         os.chdir(os.pardir)
 
 

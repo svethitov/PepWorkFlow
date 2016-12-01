@@ -93,8 +93,8 @@ def clustermeanshift(recsdict):
     labels = means.labels_
 
     uniquelabels = np.unique(labels)
-    nclusters = len(uniquelabels)
-    print('Number of estimated clusters: {}'.format(nclusters))
+    nclusters = len(uniquelabels) - 1
+    print('Number of estimated clusters (without outliers): {}'.format(nclusters))
 
     return labelclusters(recordslist, labels), nclusters
 
@@ -105,7 +105,7 @@ def clusterdbscan(recsdict, eps=0.5, min_samples=5):
     print('Clustering using DBSCAN ...')
     mydbscan = DBSCAN(eps=eps, min_samples=min_samples).fit(x_scaled)
     labels = mydbscan.labels_
-    nclusters = len(set(labels))
-    print('Number of estimated clusters: {}'.format(nclusters))
+    nclusters = len(set(labels)) - 1
+    print('Number of estimated clusters (without outliers): {}'.format(nclusters))
 
     return labelclusters(recordslist, labels)

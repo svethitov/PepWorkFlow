@@ -4,6 +4,7 @@ saves all the records in Biopyhton library'''
 
 import statistics
 import pickle
+import time
 from Bio import ExPASy
 from Bio import SwissProt
 from Bio import SeqIO
@@ -23,6 +24,7 @@ def getrecords(filename):
     print('Fetching records...')
     records = set()
     for record in aclist:
+        time.sleep(0.5)
         print('Fetching record {} ...'.format(record))
         handle = ExPASy.get_sprot_raw(record)
         records.add(SwissProt.read(handle))
