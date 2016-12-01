@@ -34,18 +34,27 @@ def main():
 
     eps = 1.1
     min_samples = 3
+    length_weight = 1
+    ss_weight = 1
     while True:
         print('')
         print('Clustering will be performed with the following settings:')
-        print('eps: {}, min_samples: {}'.format(eps, min_samples))
+        print('eps: {}, min_samples: {}, length_weight: {}, ss_weight: {}'
+              .format(eps, min_samples, length_weight, ss_weight))
         answer = input('Type "no" if you want to change them:')
         if answer == 'no':
             eps = input('Enter new value for eps: ')
             eps = float(eps)
             min_samples = input('Enter new value for min_samples: ')
             min_samples = int(min_samples)
+            length_weight = input('Enter new value for length_weight: ')
+            length_weight = float(length_weight)
+            ss_weight = input('Enter new value for ss_weight: ')
+            ss_weight = float(ss_weight)
         print('Clustering ...')
-        clustersdict = clusterdbscan(featuresvector, eps=eps, min_samples=min_samples)
+        clustersdict = clusterdbscan(featuresvector, eps=eps,
+                                     min_samples=min_samples, length_weight=length_weight,
+                                     ss_weight=ss_weight)
 
         axes = [1, 2, 3]
         filename = '3dscatter.html'
@@ -74,15 +83,15 @@ def main():
 
     subsetseqs(pdbseqsset=pdbswissrecords, clusterdict=clustersdict)
 
+    # write all records with pdb cross-ref
+    #writefasta(pdbswissrecords, 'allpdbrecords.fasta')
+
     # get all fasta files corresponding to clusters
     print('Reading fastas and starting t-coffee alignment ...')
     fastas = []
     for clusterfile in os.listdir():
         if clusterfile.endswith('.fasta'):
             fastas.append(clusterfile)
-
-    # write all records with pdb cross-ref
-    writefasta(pdbswissrecords, 'allpdbrecords.fasta')
 
     if os.path.isdir('./tcoffee'):
         print('Deleting old tcoffee directory ...')
