@@ -20,18 +20,18 @@ def getfeaturesvector(seqrecords):
     for record in seqrecords:
         print('Getting features for record {}'.format(record.accessions[0]))
         peptidelength = 0
-        print('Searching for PEPTIDE annotation...')
+        print('Searching for CHAIN annotation...')
         for feature in record.features:
-            if feature[0] == 'PEPTIDE':
+            if feature[0] == 'CHAIN':
                 peptidelength = toint(feature[2]) - toint(feature[1]) + 1
-                print('PEPTIDE length found: {} AA'.format(peptidelength))
+                print('CHAIN length found: {} AA'.format(peptidelength))
                 break
         if peptidelength == 0:
-            print('Searching for CHAIN annotation...')
+            print('Searching for PEPTIDE annotation...')
             for feature in record.features:
-                if feature[0] == 'CHAIN':
+                if feature[0] == 'PEPTIDE':
                     peptidelength = toint(feature[2]) - toint(feature[1]) + 1
-                    print('CHAIN length found: {} AA'.format(peptidelength))
+                    print('PEPTIDE length found: {} AA'.format(peptidelength))
                     break
         helix, turn, strand = 0, 0, 0
         disulfid = 0

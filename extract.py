@@ -24,7 +24,7 @@ def getrecords(filename):
     print('Fetching records...')
     records = set()
     for record in aclist:
-        time.sleep(0.5)
+        time.sleep(0.25)
         print('Fetching record {} ...'.format(record))
         handle = ExPASy.get_sprot_raw(record)
         records.add(SwissProt.read(handle))

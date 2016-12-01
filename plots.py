@@ -104,7 +104,9 @@ def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
 
 def hist(vector, filename):
     '''Plots histogram using plotly'''
-    data = [go.Histogram(x=vector, xbins=dict(start=0, size=10, end=max(vector) + 25),
+    data = [go.Histogram(x=vector, autobinx=False, xbins=dict(start=min(vector),
+                                                              size=5,
+                                                              end=(max(vector) + 25)),
                          marker=dict(color='ADD8E6'))]
     fig = go.Figure(data=data)
     plot(fig, filename=filename)
