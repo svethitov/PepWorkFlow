@@ -13,9 +13,9 @@ from plots import plot3dscatter
 def main():
     '''Main function for the WorkFlow'''
     print('Searching for list.list or RecordsSet.bin ...')
-    if os.path.isfile('./PDBRecordsSet.bin'):
-        print('PDBRecordsSet.bin found ...')
-        swissrecords = loadbinary('PDBRecordsSet.bin')
+    if os.path.isfile('./RecordsSet.bin'):
+        print('RecordsSet.bin found ...')
+        swissrecords = loadbinary('RecordsSet.bin')
     elif os.path.isfile('./list.list'):
         print('list.list found ...')
         swissrecords = getrecords('list.list')
@@ -24,16 +24,16 @@ def main():
         sys.exit()
 
     getseqstat(swissrecords, 'all_records.html')
-    input('Press Enter key to continue ...')
+    input('Press Enter to continue ...')
     savebinary('RecordsSet.bin', swissrecords)
     pdbswissrecords = getpdb(swissrecords)
     getseqstat(pdbswissrecords, 'pdb_cross-refed_records.html')
-    input('Press Enter key to continue ...')
+    input('Press Enter to continue ...')
 
     featuresvector = getfeaturesvector(pdbswissrecords)
 
-    eps = 1.2
-    min_samples = 2
+    eps = 1.1
+    min_samples = 3
     while True:
         print('')
         print('Clustering will be performed with the following settings:')
@@ -46,6 +46,7 @@ def main():
             min_samples = int(min_samples)
         print('Clustering ...')
         clustersdict = clusterdbscan(featuresvector, eps=eps, min_samples=min_samples)
+
         axes = [1, 2, 3]
         filename = '3dscatter.html'
         while True:

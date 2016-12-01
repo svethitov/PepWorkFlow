@@ -51,12 +51,12 @@ def getfeaturesvector(seqrecords):
             turn/peptidelength, disulfid]
     return seqdict
 
-def listtodict(recordlist: list):
+def listtodict(recordlist):
     '''Returns dictionary object from iterable'''
     return {item[0]: item[1] for item in recordlist}
 
 
-def scale(recsdict: dict):
+def scale(recsdict):
     '''Scales the data using Robust Scale'''
     recordslist = []
     for key, value in recsdict.items():
@@ -65,7 +65,7 @@ def scale(recsdict: dict):
     x_raw = np.array([record[1] for record in recordslist])
     return robust_scale(x_raw), recordslist
 
-def labelclusters(recordslist: list, labels: list):
+def labelclusters(recordslist, labels):
     '''Returns labeled dictionary with the records'''
     for idx, record in enumerate(recordslist):
         record[1].append(labels[idx])
@@ -76,11 +76,11 @@ def removeprevlabel(recsdict):
     print('Removing previous labels, if any ...')
     for key, value in recsdict.items():
         if len(value) > 5:
-            recsdict[key] = value[0:4]
+            recsdict[key] = value[0:5]
 
     return recsdict
 
-def clustermeanshift(recsdict: dict):
+def clustermeanshift(recsdict):
     '''Clusters proteins by MeanShift Algorithm'''
     recsdict = removeprevlabel(recsdict)
     x_scaled, recordslist = scale(recsdict)
