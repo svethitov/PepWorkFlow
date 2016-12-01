@@ -42,19 +42,21 @@ def getpdb(recordlist):
     print('{} records found to have PDB cross-reference'.format(len(pdbrecords)))
     return pdbrecords
 
-def getseqstat(seqrecords, filename):
+def getseqstat(seqrecords, filename=''):
     '''Gives basic statistics for the sequences in iterable object
-    Uses matplotlyb.pyplot'''
+    Plots histogram of sequence lengths if filename is provided'''
     print('Getting sequences lengths...')
     lens = [len(seq.sequence) for seq in seqrecords]
     print('Basic stats:')
+    print('Number of sequences: {}'.format(len(lens)))
     print('Mean: {}'.format(statistics.mean(lens)))
     print('Standard deviation: {}'.format(statistics.pstdev(lens)))
     print('Maximum length: {}'.format(max(lens)))
     print('Minimum length: {}'.format(min(lens)))
     print('Range: {}'.format(max(lens)-min(lens)))
     print(sorted(lens))
-    hist(lens, filename)
+    if filename != '':
+        hist(lens, filename)
 
 def gettrimmedseq(seqrecords, minlength, maxlength):
     '''Returns set of SwissProt Records filtered by sequence length.

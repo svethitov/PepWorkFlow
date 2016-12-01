@@ -1,22 +1,35 @@
 #!/usr/bin/python
 '''Workflow for Peptide clustering and alignment'''
 
+import subprocess
+import os
+import sys
+import shutil
 from cluster import *
 from extract import *
 from plots import plot3dscatter
-import subprocess
-import os
+
 
 def main():
     '''Main function for the WorkFlow'''
-    print('The script expect list.list file or PDBRecordsSet.bin:')
-    swissrecords = getrecords('list.list')
+    print('Searching for list.list or RecordsSet.bin ...')
+    if os.path.isfile('./PDBRecordsSet.bin'):
+        print('PDBRecordsSet.bin found ...')
+        swissrecords = loadbinary('PDBRecordsSet.bin')
+    elif os.path.isfile('./list.list'):
+        print('list.list found ...')
+        swissrecords = getrecords('list.list')
+    else:
+        print('No usable file found! Exiting')
+        sys.exit()
+
     getseqstat(swissrecords, 'all_records.html')
     input('Press Enter key to continue ...')
+    savebinary('RecordsSet.bin', swissrecords)
     pdbswissrecords = getpdb(swissrecords)
     getseqstat(pdbswissrecords, 'pdb_cross-refed_records.html')
     input('Press Enter key to continue ...')
-    savebinary('PDBRecordsSet.bin', pdbswissrecords)
+
     featuresvector = getfeaturesvector(pdbswissrecords)
 
     eps = 1.2
@@ -67,6 +80,10 @@ def main():
         if clusterfile.endswith('.fasta'):
             fastas.append(clusterfile)
 
+    if os.path.isdir('./tcoffee'):
+        print('Deleting old tcoffee directory ...')
+        shutil.rmtree('./tcoffee')
+    print('Creating new tcoffee directory ...')
     os.mkdir('tcoffee')
     os.chdir('tcoffee')
     for cluster in fastas:

@@ -29,7 +29,7 @@ def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
     if len(recsdict[mykey]) == 6:
         uniqueclusters = set([item[1][5] for item in vectors])
     else:
-        uniqueclusters = set(1)
+        uniqueclusters = [1]
 
     for cluster in uniqueclusters:
         xvalues = \

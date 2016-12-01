@@ -5,9 +5,14 @@ import numpy as np
 from sklearn.cluster import DBSCAN, MeanShift, estimate_bandwidth
 from sklearn.preprocessing import robust_scale
 
-def toint(string):
+def toint(number):
     '''Implements int() function but checks if there is special chraracter in the string'''
-    return int(''.join(e for e in string if e.isalnum()))
+    if isinstance(number, str):
+        return int(''.join(e for e in number if e.isalnum()))
+    elif isinstance(number, float):
+        return int(number)
+    else:
+        return number
 
 def getfeaturesvector(seqrecords):
     '''Extract feature vector from iterable object of SwissProt Records'''
@@ -69,9 +74,9 @@ def labelclusters(recordslist: list, labels: list):
 def removeprevlabel(recsdict):
     '''Removes previous feature label in the dictionary'''
     print('Removing previous labels, if any ...')
-    for value in recsdict.values():
+    for key, value in recsdict.items():
         if len(value) > 5:
-            value = value[0:4]
+            recsdict[key] = value[0:4]
 
     return recsdict
 
