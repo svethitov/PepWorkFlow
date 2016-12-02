@@ -131,13 +131,11 @@ def clusterdbscan(recsdict, eps=0.5, min_samples=5, length_weight=1, ss_weight=1
     '''Clusters proteins by DBSCAN Algorithm'''
     recsdict = removeprevlabel(recsdict)
     x_scaled, recordslist = scale(recsdict)
-    print(x_scaled)
     print('Weighting ...')
     x_scaled[:, 0] *= length_weight
     x_scaled[:, 1] *= ss_weight
     x_scaled[:, 2] *= ss_weight
     x_scaled[:, 3] *= ss_weight
-    print(x_scaled)
     print('Clustering using DBSCAN ...')
     mydbscan = DBSCAN(eps=eps, min_samples=min_samples).fit(x_scaled)
     labels = mydbscan.labels_

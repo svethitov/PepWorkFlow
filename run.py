@@ -6,32 +6,13 @@ import os
 import sys
 import shutil
 from cluster import getfeaturesvector, clusterdbscan
-from extract import getseqstat, savebinary, loadbinary, getrecords, getpdb, subsetseqs, writefasta
+from tree import buildtree
+from extract import getseqstat, savebinary, loadbinary, getrecords, getpdb, subsetseqs
 from plots import plot3dscatter
 
 
-def main():
-    '''Main function for the WorkFlow'''
-    print('Searching for list.list or RecordsSet.bin ...')
-    if os.path.isfile('./RecordsSet.bin'):
-        print('RecordsSet.bin found ...')
-        swissrecords = loadbinary('RecordsSet.bin')
-    elif os.path.isfile('./list.list'):
-        print('list.list found ...')
-        swissrecords = getrecords('list.list')
-    else:
-        print('No usable file found! Exiting')
-        sys.exit()
-
-    getseqstat(swissrecords, 'all_records.html')
-    input('Press Enter to continue ...')
-    savebinary('RecordsSet.bin', swissrecords)
-    pdbswissrecords = getpdb(swissrecords)
-    getseqstat(pdbswissrecords, 'pdb_cross-refed_records.html')
-    input('Press Enter to continue ...')
-
-    featuresvector = getfeaturesvector(pdbswissrecords)
-
+def _clustering(featuresvector, pdbswissrecords):
+    '''Clusters the records to produce clusters'''
     eps = 1.1
     min_samples = 3
     length_weight = 1
@@ -118,6 +99,38 @@ def main():
         with open('sim.txt', 'w') as simfile:
             subprocess.run(command.split(), stdout=simfile)
         os.chdir(os.pardir)
+
+def main():
+    '''Main function for the WorkFlow'''
+    print('Searching for list.list or RecordsSet.bin ...')
+    if os.path.isfile('./RecordsSet.bin'):
+        print('RecordsSet.bin found ...')
+        swissrecords = loadbinary('RecordsSet.bin')
+    elif os.path.isfile('./list.list'):
+        print('list.list found ...')
+        swissrecords = getrecords('list.list')
+    else:
+        print('No usable file found! Exiting')
+        sys.exit()
+
+    getseqstat(swissrecords, 'all_records.html')
+    input('Press Enter to continue ...')
+    savebinary('RecordsSet.bin', swissrecords)
+    pdbswissrecords = getpdb(swissrecords)
+    getseqstat(pdbswissrecords, 'pdb_cross-refed_records.html')
+    input('Press Enter to continue ...')
+
+    featuresvector = getfeaturesvector(pdbswissrecords)
+
+    print()
+    print('By default will use the new tree building procedure ...')
+    choice = input('Press Enter to continue or type "no" to change to old dbscan: ')
+
+    if choice == 'no':
+        _clustering(featuresvector=featuresvector, pdbswissrecords=pdbswissrecords)
+    else:
+        root_node = buildtree(featuresvector=featuresvector)
+        
 
 
 if __name__ == '__main__':
