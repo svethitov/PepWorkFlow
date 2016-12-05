@@ -3,7 +3,9 @@
 from random import randint
 from plotly.offline import plot
 import plotly.graph_objs as go
-from clustering import listtodict
+from matplotlib import pyplot as plt
+from scipy.cluster.hierarchy import dendrogram
+from pepwork.clustering import listtodict
 
 def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
     '''Given dictionary or list filled with features vectors plot a 3d scatter plot3dscatterplot
@@ -110,3 +112,21 @@ def hist(vector, filename):
                          marker=dict(color='ADD8E6'))]
     fig = go.Figure(data=data)
     plot(fig, filename=filename)
+
+def clustersdendrogram(data, labels, nodecolor):
+    '''Plots dendrogram of the hierarchical clustering'''
+    def color_func(index, nodecolor=nodecolor):
+        if index in nodecolor.keys():
+            return nodecolor[index]
+        else:
+            return '#D3D3D3'
+    plt.figure()
+    plt.title('Dendrogram')
+    plt.xlabel('Samples')
+    plt.ylabel('Distance')
+    dendrogram(
+        data,
+        labels=labels,
+        link_color_func=color_func
+    )
+    plt.show()

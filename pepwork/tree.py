@@ -3,13 +3,19 @@
 import os
 import subprocess
 import re
+import random
 from collections import OrderedDict
 from scipy.cluster.hierarchy import average
 from scipy.cluster.hierarchy import cophenet, to_tree
 from scipy.spatial.distance import pdist
-from clustering import removeprevlabel, scale
-from extract import writefasta, itertodict
-from cluster import Cluster
+from pepwork.clustering import removeprevlabel, scale
+from pepwork.extract import writefasta, itertodict
+from pepwork.cluster import Cluster
+
+def _gen_random_color():
+    '''Generates random HEX color'''
+    return '#' + ''.join([random.choice('0123456789ABCDEF') for x in range(6)])
+
 
 def buildtree(featuresvector):
     '''Creates tree from peptide features and returns root node'''
@@ -20,7 +26,18 @@ def buildtree(featuresvector):
     coph, _ = cophenet(linkage_matrix, pdist(x_scaled))
     print('Cophenet parameter (values close to 1 are good): {}'.format(coph))
     input('Press Enter to continue ...')
-    return to_tree(linkage_matrix)
+    return to_tree(linkage_matrix), linkage_matrix
+
+
+def childrentraversal(node):
+    '''Returns the idxs of the children nodes'''
+    if node.is_leaf():
+        return [node.id]
+    else:
+        idxs = [node.id]
+        idxs += childrentraversal(node.left)
+        idxs += childrentraversal(node.right)
+        return idxs
 
 def treetraversal(node, records: OrderedDict):
     '''Recursively traversing the tree and searching for clusters of peptides'''
@@ -71,7 +88,10 @@ def treetraversal(node, records: OrderedDict):
     else:
         print('Cluster found on node {} with {} peptides ...'.\
             format(node.id, len(idxs)))
+        idxs = []
+        idxs += childrentraversal(node.left)
+        idxs += childrentraversal(node.right)
         thisclusterrecords = itertodict(currentrecords)
-        clusters.append(Cluster(thisclusterrecords))
-    
+        clusters.append(Cluster(thisclusterrecords, _gen_random_color(), node.id, idxs))
+
     return clusters

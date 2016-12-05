@@ -11,7 +11,7 @@ from Bio import SwissProt
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from plots import hist
+from pepwork.plots import hist
 
 def getrecords(filename='list.list'):
     '''Extract the list of AC and returns them in a set of SwissProt Record objects'''
