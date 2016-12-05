@@ -1,6 +1,6 @@
 '''Clustering and utils for clustering used for the peptides'''
 
-
+from collections import OrderedDict
 import numpy as np
 from sklearn.cluster import DBSCAN, MeanShift, estimate_bandwidth
 from sklearn.preprocessing import robust_scale
@@ -33,33 +33,32 @@ def secondarystructuretrim(startaa, endaa, featurestartaa, featureendaa):
 
     return end - start + 1
 
-def getfeaturesvector(seqrecords):
-    '''Extract feature vector from iterable object of SwissProt Records'''
-    seqdict = dict()
-    for record in seqrecords:
-        print('Getting features for record {}'.format(record.accessions[0]))
-        peptidelength = 0
-        print('Searching for CHAIN annotation...')
-        for feature in record.features:
+def getfeaturesvector(records: OrderedDict) -> OrderedDict:
+    '''Constructs features vector for every record based on the secondary structure'''
+    vectorsdict = OrderedDict()
+    for key in records.keys():
+        print('Getting features for record {} ...'.format(records[key].accessions[0]))
+        peplength = 0
+        print('Searching for CHAIN annotation ...')
+        for feature in records[key].features:
             if feature[0] == 'CHAIN':
-                peptidelength = toint(feature[2]) - toint(feature[1]) + 1
-                print('CHAIN length found: {} AA'.format(peptidelength))
+                peplength = toint(feature[2] - toint(feature[1]) + 1)
+                print('CHAIN length found: {} AA'.format(peplength))
                 startaa = toint(feature[1])
                 endaa = toint(feature[2])
                 break
-        if peptidelength == 0:
-            print('Searching for PEPTIDE annotation...')
-            for feature in record.features:
+        if peplength == 0:
+            print('Searching for PEPTIDE annotation ...')
+            for feature in records[key].features:
                 if feature[0] == 'PEPTIDE':
-                    peptidelength = toint(feature[2]) - toint(feature[1]) + 1
-                    print('PEPTIDE length found: {} AA'.format(peptidelength))
+                    peplength = toint(feature[2]) - toint(feature[1]) + 1
+                    print('PEPTIDE length found: {} AA'.format(peplength))
                     startaa = toint(feature[1])
                     endaa = toint(feature[2])
                     break
-        helix, turn, strand = 0, 0, 0
-        disulfid = 0
-        print('Getting secondary structure...')
-        for feature in record.features:
+        helix, turn, strand, disulfid = 0, 0, 0, 0
+        print('Getting secondary structure ...')
+        for feature in records[key].features:
             if feature[0] == 'HELIX':
                 helix += secondarystructuretrim(startaa=startaa, endaa=endaa,
                                                 featurestartaa=toint(feature[1]),
@@ -76,9 +75,12 @@ def getfeaturesvector(seqrecords):
                 disulfid += 1
         print('HELIX: {}, STRAND {}, TURN {}, DISULFID {}'.format(\
             helix, strand, turn, disulfid))
-        seqdict[record.accessions[0]] = [peptidelength, helix/peptidelength, strand/peptidelength, \
-            turn/peptidelength, disulfid]
-    return seqdict
+
+        vectorsdict[records[key].accessions[0]] = [peplength, helix/peplength, strand/peplength, \
+            turn/peplength, disulfid]
+
+    return vectorsdict
+
 
 def listtodict(recordlist):
     '''Returns dictionary object from iterable'''

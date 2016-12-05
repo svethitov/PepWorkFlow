@@ -5,65 +5,13 @@ import subprocess
 import os
 import sys
 import shutil
-from cluster import getfeaturesvector, clusterdbscan
+from clustering import getfeaturesvector, clusterdbscan
 from tree import buildtree
 from extract import getseqstat, savebinary, loadbinary, getrecords, getpdb, subsetseqs
 from plots import plot3dscatter
 
-
-def _clustering(featuresvector, pdbswissrecords):
-    '''Clusters the records to produce clusters'''
-    eps = 1.1
-    min_samples = 3
-    length_weight = 1
-    ss_weight = 1
-    while True:
-        print('')
-        print('Clustering will be performed with the following settings:')
-        print('eps: {}, min_samples: {}, length_weight: {}, ss_weight: {}'
-              .format(eps, min_samples, length_weight, ss_weight))
-        answer = input('Type "no" if you want to change them:')
-        if answer == 'no':
-            eps = input('Enter new value for eps: ')
-            eps = float(eps)
-            min_samples = input('Enter new value for min_samples: ')
-            min_samples = int(min_samples)
-            length_weight = input('Enter new value for length_weight: ')
-            length_weight = float(length_weight)
-            ss_weight = input('Enter new value for ss_weight: ')
-            ss_weight = float(ss_weight)
-        print('Clustering ...')
-        clustersdict = clusterdbscan(featuresvector, eps=eps,
-                                     min_samples=min_samples, length_weight=length_weight,
-                                     ss_weight=ss_weight)
-
-        axes = [1, 2, 3]
-        filename = '3dscatter.html'
-        while True:
-            print('')
-            print('Plotting 3D graph with the following settings:')
-            print('Name: {}'.format(filename))
-            print('x: {}, y: {}, z: {}'.format(axes[0], axes[1], axes[2]))
-            answer = input('Type "no" if you want to change them:')
-            if answer == 'no':
-                axes[0] = input('Enter value for first axis: ')
-                axes[1] = input('Enter value for second axis: ')
-                axes[2] = input('Enter value for third axis: ')
-                axes = [int(axis) for axis in axes]
-                filename = input('Enter a value for filename: ')
-
-            plot3dscatter(clustersdict, filename=filename, xaxis=axes[0],
-                          yaxis=axes[1], zaxis=axes[2])
-            answer = input('Are you happy with the plot? Type "y" to continue: ')
-            if answer == 'y':
-                break
-
-        answer = input('Are you happy with the result of the clustering? Type "y" to continue: ')
-        if answer == 'y':
-            break
-
-    subsetseqs(pdbseqsset=pdbswissrecords, clusterdict=clustersdict)
-
+def _writingfastas():
+    '''Function invoking file writing functionaloty'''
     # write all records with pdb cross-ref
     #writefasta(pdbswissrecords, 'allpdbrecords.fasta')
 
@@ -100,6 +48,71 @@ def _clustering(featuresvector, pdbswissrecords):
             subprocess.run(command.split(), stdout=simfile)
         os.chdir(os.pardir)
 
+
+def _plotting(clustersdict):
+    '''Function invoking plotting functionality'''
+    axes = [1, 2, 3]
+    filename = '3dscatter.html'
+    while True:
+        print('')
+        print('Plotting 3D graph with the following settings:')
+        print('Name: {}'.format(filename))
+        print('x: {}, y: {}, z: {}'.format(axes[0], axes[1], axes[2]))
+        answer = input('Type "no" if you want to change them:')
+        if answer == 'no':
+            axes[0] = input('Enter value for first axis: ')
+            axes[1] = input('Enter value for second axis: ')
+            axes[2] = input('Enter value for third axis: ')
+            axes = [int(axis) for axis in axes]
+            filename = input('Enter a value for filename: ')
+
+        plot3dscatter(clustersdict, filename=filename, xaxis=axes[0],
+                      yaxis=axes[1], zaxis=axes[2])
+        answer = input('Are you happy with the plot? Type "y" to continue: ')
+        if answer == 'y':
+            break
+
+def _clustering(featuresvector, pdbswissrecords):
+    '''Function invoking dbscan clustering procedure'''
+    eps = 1.1
+    min_samples = 3
+    length_weight = 1
+    ss_weight = 1
+    while True:
+        print('')
+        print('Clustering will be performed with the following settings:')
+        print('eps: {}, min_samples: {}, length_weight: {}, ss_weight: {}'
+              .format(eps, min_samples, length_weight, ss_weight))
+        answer = input('Type "no" if you want to change them:')
+        if answer == 'no':
+            eps = input('Enter new value for eps: ')
+            eps = float(eps)
+            min_samples = input('Enter new value for min_samples: ')
+            min_samples = int(min_samples)
+            length_weight = input('Enter new value for length_weight: ')
+            length_weight = float(length_weight)
+            ss_weight = input('Enter new value for ss_weight: ')
+            ss_weight = float(ss_weight)
+        print('Clustering ...')
+        clustersdict = clusterdbscan(featuresvector, eps=eps,
+                                     min_samples=min_samples, length_weight=length_weight,
+                                     ss_weight=ss_weight)
+
+        _plotting(clustersdict=clustersdict)
+
+        answer = input('Are you happy with the result of the clustering? Type "y" to continue: ')
+        if answer == 'y':
+            break
+
+   # subsetseqs(pdbseqsdict=pdbswissrecords, clusterdict=clustersdict)
+
+    _writingfastas()
+
+def _treebuilding(featuresvector):
+    '''Function invoking UPGMA tree building procedure'''
+    root_node = buildtree(featuresvector=featuresvector)
+
+
 def main():
     '''Main function for the WorkFlow'''
     print('Searching for list.list or RecordsSet.bin ...')
@@ -129,8 +142,7 @@ def main():
     if choice == 'no':
         _clustering(featuresvector=featuresvector, pdbswissrecords=pdbswissrecords)
     else:
-        root_node = buildtree(featuresvector=featuresvector)
-        
+        _treebuilding(featuresvector=featuresvector)
 
 
 if __name__ == '__main__':

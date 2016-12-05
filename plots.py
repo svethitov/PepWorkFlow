@@ -3,7 +3,7 @@
 from random import randint
 from plotly.offline import plot
 import plotly.graph_objs as go
-from cluster import listtodict
+from clustering import listtodict
 
 def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
     '''Given dictionary or list filled with features vectors plot a 3d scatter plot3dscatterplot
