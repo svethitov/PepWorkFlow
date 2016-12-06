@@ -5,7 +5,7 @@ import subprocess
 import re
 import random
 from collections import OrderedDict
-from scipy.cluster.hierarchy import average
+from scipy.cluster.hierarchy import linkage
 from scipy.cluster.hierarchy import cophenet, to_tree
 from scipy.spatial.distance import pdist
 from pepwork.clustering import removeprevlabel, scale
@@ -17,15 +17,14 @@ def _gen_random_color():
     return '#' + ''.join([random.choice('0123456789ABCDEF') for x in range(6)])
 
 
-def buildtree(featuresvector):
+def buildtree(featuresvector, method):
     '''Creates tree from peptide features and returns root node'''
     featuresvector = removeprevlabel(featuresvector)
     x_scaled, _ = scale(featuresvector)
-    print('Building linkage matrix ...')
-    linkage_matrix = average(x_scaled)
+    print('Building linkage matrix using {} algorithm ...'.format(mehtod))
+    linkage_matrix = linkage(x_scaled, method)
     coph, _ = cophenet(linkage_matrix, pdist(x_scaled))
     print('Cophenet parameter (values close to 1 are good): {}'.format(coph))
-    input('Press Enter to continue ...')
     return to_tree(linkage_matrix), linkage_matrix
 
 
@@ -39,7 +38,7 @@ def childrentraversal(node):
         idxs += childrentraversal(node.right)
         return idxs
 
-def treetraversal(node, records: OrderedDict):
+def treetraversal(node, records: OrderedDict, sim_threshold: float=20.0):
     '''Recursively traversing the tree and searching for clusters of peptides'''
     print()
     print('Node number: {}'.format(node.id))
@@ -69,7 +68,7 @@ def treetraversal(node, records: OrderedDict):
             if line.startswith('BOT'):
                 similarity = re.search(r'\d{1,2}\.\d{2}', line)
                 print('Similarity {}'.format(similarity.group(0)))
-                if float(similarity.group(0)) < 20.0:
+                if float(similarity.group(0)) < sim_threshold:
                     print('Pair of records with lower than threshold similarity found ...')
                     sim_below_threshold = True
                     break
@@ -78,11 +77,13 @@ def treetraversal(node, records: OrderedDict):
     os.remove('clustalo_sim.txt')
     if sim_below_threshold:
         result = treetraversal(node=node.left,
-                               records=records)
+                               records=records,
+                               sim_threshold=sim_threshold)
         if result is not None:
             clusters += result
         result = treetraversal(node=node.right,
-                               records=records)
+                               records=records,
+                               sim_threshold=sim_threshold)
         if result is not None:
             clusters += result
     else:

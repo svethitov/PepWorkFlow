@@ -36,12 +36,16 @@ class UniProtCollection:
         else:
             pepwork.extract.getseqstat(self.allrecords, filename='all_records.html')
 
-    def cluster(self):
+    def buildguidetree(self, method='average'):
+        '''Builds guide tree for clustering'''
+        self.rootnode, self.linkagematrix = pepwork.tree.buildtree(self.ssfeatures, method)
+
+    def cluster(self, sim_threshold=20.0):
         '''Clusters the pdb cross-refed records'''
-        self.rootnode, self.linkagematrix = pepwork.tree.buildtree(self.ssfeatures)
         self.clusters = pepwork.tree.treetraversal(
             node=self.rootnode,
-            records=self.records)
+            records=self.records,
+            sim_threshold=sim_threshold)
         for idx, cluster in enumerate(self.clusters):
             for key in cluster.get_keys():
                 self.clustersdict[key] = idx
