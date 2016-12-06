@@ -4,6 +4,7 @@ import os
 import subprocess
 import re
 import random
+import shutil
 from collections import OrderedDict
 from scipy.cluster.hierarchy import linkage
 from scipy.cluster.hierarchy import cophenet, to_tree
@@ -21,7 +22,7 @@ def buildtree(featuresvector, method):
     '''Creates tree from peptide features and returns root node'''
     featuresvector = removeprevlabel(featuresvector)
     x_scaled, _ = scale(featuresvector)
-    print('Building linkage matrix using {} algorithm ...'.format(mehtod))
+    print('Building linkage matrix using {} algorithm ...'.format(method))
     linkage_matrix = linkage(x_scaled, method)
     coph, _ = cophenet(linkage_matrix, pdist(x_scaled))
     print('Cophenet parameter (values close to 1 are good): {}'.format(coph))
@@ -54,16 +55,25 @@ def treetraversal(node, records: OrderedDict, sim_threshold: float=20.0):
     for idx in idxs:
         currentrecords.append(records[keyslist[idx]])
 
+    if os.path.isdir('./tcoffee'):
+        print('Deleting old tcoffee directory ...')
+        shutil.rmtree('./tcoffee')
+
+    print('Creating new tcoffee directory ...')
+    os.mkdir('tcoffee')
+    os.chdir('tcoffee')
+
     writefasta(currentrecords, 'working.fasta')
-    command = 'clustalo -i working.fasta -o clustalo.aln'
+    command = 't_coffee -seq working.fasta -mode accurate -matrix=blosum50mt -pdb_type dn \
+               -pdb_min_sim 80 -pdb_min_cov 20'
     subprocess.run(command.split())
 
-    command = 't_coffee -other_pg seq_reformat -in clustalo.aln -output sim'
-    with open('clustalo_sim.txt', 'w') as simfile:
+    command = 't_coffee -other_pg seq_reformat -in working.aln -output sim'
+    with open('sim.txt', 'w') as simfile:
         subprocess.run(command.split(), stdout=simfile)
 
     sim_below_threshold = False
-    with open('clustalo_sim.txt', 'r') as simfile:
+    with open('sim.txt', 'r') as simfile:
         for line in simfile:
             if line.startswith('BOT'):
                 similarity = re.search(r'\d{1,2}\.\d{2}', line)
@@ -72,9 +82,8 @@ def treetraversal(node, records: OrderedDict, sim_threshold: float=20.0):
                     print('Pair of records with lower than threshold similarity found ...')
                     sim_below_threshold = True
                     break
-    os.remove('working.fasta')
-    os.remove('clustalo.aln')
-    os.remove('clustalo_sim.txt')
+    os.chdir(os.pardir)
+    shutil.rmtree('./tcoffee')
     if sim_below_threshold:
         result = treetraversal(node=node.left,
                                records=records,

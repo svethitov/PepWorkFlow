@@ -42,7 +42,7 @@ def getfeaturesvector(records: OrderedDict) -> OrderedDict:
         print('Searching for CHAIN annotation ...')
         for feature in records[key].features:
             if feature[0] == 'CHAIN':
-                peplength = toint(feature[2] - toint(feature[1]) + 1)
+                peplength = toint(feature[2]) - toint(feature[1]) + 1
                 print('CHAIN length found: {} AA'.format(peplength))
                 startaa = toint(feature[1])
                 endaa = toint(feature[2])

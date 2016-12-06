@@ -62,7 +62,6 @@ def plot3dscatter(clusters, filename, outliers=None, xaxis=1, yaxis=2, zaxis=3):
 
     if outliers is not None:
         mesh, trace = _get_trace_mesh(outliers, -1, xaxis, yaxis, zaxis)
-        data.append(mesh)
         data.append(trace)
 
     axisnames = {
