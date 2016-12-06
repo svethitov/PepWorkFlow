@@ -1,14 +1,16 @@
 '''Cluster class'''
 
+from collections import OrderedDict
 import pepwork.extract
 
 class Cluster:
     '''Class holding the records in a single cluster'''
-    def __init__(self, records, color, parentnode, membernodes):
+    def __init__(self, records, color, parentnode=None, membernodes=None):
         self.records = records
         self.color = color
         self.parentnode = parentnode
         self.membernodes = membernodes
+        self.ssfeatures = OrderedDict()
 
     def save_fasta(self, filename: str):
         '''Writes fasta file with the records'''

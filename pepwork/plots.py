@@ -1,77 +1,68 @@
 '''Ploting functions for PepWorkFlow'''
 
-from random import randint
 from plotly.offline import plot
 import plotly.graph_objs as go
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram
-from pepwork.clustering import listtodict
 
-def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
+def _get_trace_mesh(cluster, idx, xaxis, yaxis, zaxis):
+    '''Makes mesh and 3dscatter for plot3dscatter'''
+    if idx == -1:
+        name = 'Outliers'
+        size = 2
+    else:
+        name = 'Cluster: {}'.format(idx + 1)
+        size = 4
+
+    xvalues = [cluster.ssfeatures[key][xaxis - 1] for key in cluster.records.keys()]
+    yvalues = [cluster.ssfeatures[key][yaxis - 1] for key in cluster.records.keys()]
+    zvalues = [cluster.ssfeatures[key][zaxis - 1] for key in cluster.records.keys()]
+    name = name
+    mesh = go.Mesh3d(
+        x=xvalues,
+        y=yvalues,
+        z=zvalues,
+        color=cluster.color,
+        opacity=0.05,
+        alphahull=2,
+        name=name
+    )
+    trace = go.Scatter3d(
+        x=xvalues,
+        y=yvalues,
+        z=zvalues,
+        mode='markers',
+        marker=dict(
+            color=cluster.color,
+            size=size
+        ),
+        text=[name for name in cluster.records.keys()],
+        name=name,
+        opacity=0.8
+    )
+    return mesh, trace
+
+def plot3dscatter(clusters, filename, outliers=None, xaxis=1, yaxis=2, zaxis=3):
     '''Given dictionary or list filled with features vectors plot a 3d scatter plot3dscatterplot
     You should also provide features for the different axes.
     Mapping for axes:
     1 - Peptide Length
-    2 - Helix %
-    3 - Strand %
-    4 - Turn %
+    2 - Helix
+    3 - Strand
+    4 - Turn
     5 - Disulfid bridges #
     Uses the plotly library'''
-    if isinstance(recsdict, list):
-        recsdict = listtodict(recsdict)
 
-    vectors = [item for item in recsdict.items()]
     data = []
 
-    # Gets lenght of Value
-    for key in recsdict.keys():
-        mykey = key
-        break
+    for idx, cluster in enumerate(clusters):
+        mesh, trace = _get_trace_mesh(cluster, idx, xaxis, yaxis, zaxis)
+        data.append(mesh)
+        data.append(trace)
 
-    if len(recsdict[mykey]) == 6:
-        uniqueclusters = set([item[1][5] for item in vectors])
-    else:
-        uniqueclusters = [1]
-
-    for cluster in uniqueclusters:
-        xvalues = \
-            [item[1][xaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
-        yvalues = \
-            [item[1][yaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
-        zvalues = \
-            [item[1][zaxis - 1] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
-        color = 'rgb(' + str(randint(0, 255)) + ',' + str(randint(0, 255)) + \
-                    ',' + str(randint(0, 255)) + ')'
-        textvalues = [item[0] for item in vectors if len(item[1]) < 6 or item[1][5] == cluster]
-
-        if cluster < 0:
-            size = 3
-        else:
-            size = 4
-            mesh = go.Mesh3d(
-                x=xvalues,
-                y=yvalues,
-                z=zvalues,
-                color=color,
-                opacity=0.05,
-                alphahull=2,
-                name='Cluster: {}'.format(cluster),
-            )
-            data.append(mesh)
-
-        trace = go.Scatter3d(
-            x=xvalues,
-            y=yvalues,
-            z=zvalues,
-            mode='markers',
-            marker=dict(
-                color=color,
-                size=size
-            ),
-            text=textvalues,
-            name='Cluster: {}'.format(cluster),
-            opacity=0.8
-        )
+    if outliers is not None:
+        mesh, trace = _get_trace_mesh(outliers, -1, xaxis, yaxis, zaxis)
+        data.append(mesh)
         data.append(trace)
 
     axisnames = {
@@ -88,7 +79,7 @@ def plot3dscatter(recsdict, filename, xaxis=1, yaxis=2, zaxis=3):
             b=1,
             t=1
         ),
-        title='3d plot of features',
+        title='3D Plot of Features',
         scene=dict(
             xaxis=dict(
                 title=axisnames[xaxis]
@@ -116,6 +107,7 @@ def hist(vector, filename):
 def clustersdendrogram(data, labels, nodecolor):
     '''Plots dendrogram of the hierarchical clustering'''
     def color_func(index, nodecolor=nodecolor):
+        '''Callable function for node color'''
         if index in nodecolor.keys():
             return nodecolor[index]
         else:
