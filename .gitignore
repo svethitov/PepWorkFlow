@@ -6,3 +6,7 @@ list.list
 *.aln
 *.swp
 tcoffee/
+*.score_html
+*.score_ascii
+*.png
+*.txt

@@ -81,7 +81,7 @@ class UniProtCollection:
         clustersdendrogram(self.linkagematrix, [key for key in self.ssfeatures.keys()],
                            self.nodecolor)
 
-    def plot3dscatter(self, filename='3dscatter.html', xaxis=1, yaxis=2, zaxis=3):
+    def plot_3dscatter(self, filename='3dscatter.html', xaxis=1, yaxis=2, zaxis=3):
         '''Plots 3D scatterplot for all pdb records'''
         plot3dscatter(
             clusters=self.clusters,

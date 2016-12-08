@@ -9,6 +9,8 @@ from collections import OrderedDict
 from scipy.cluster.hierarchy import linkage
 from scipy.cluster.hierarchy import cophenet, to_tree
 from scipy.spatial.distance import pdist
+from Bio import AlignIO
+from Bio.Alphabet import generic_protein
 from pepwork.clustering import removeprevlabel, scale
 from pepwork.extract import writefasta, itertodict
 from pepwork.cluster import Cluster
@@ -83,8 +85,7 @@ def treetraversal(node, records: OrderedDict, sim_threshold: float=20.0):
                     print('Pair of records with lower than threshold similarity found ...')
                     sim_below_threshold = True
                     break
-    os.chdir(os.pardir)
-    shutil.rmtree('./tcoffee')
+
     if sim_below_threshold:
         result = treetraversal(node=node.left,
                                records=records,
@@ -103,6 +104,26 @@ def treetraversal(node, records: OrderedDict, sim_threshold: float=20.0):
         idxs += childrentraversal(node.left)
         idxs += childrentraversal(node.right)
         thisclusterrecords = itertodict(currentrecords)
-        clusters.append(Cluster(thisclusterrecords, _gen_random_color(), node.id, idxs))
+
+        # Making accurate alignment using Expresso for the cluster
+        command = 't_coffee -seq working.fasta -mode psicoffee'
+        subprocess.run(command.split())
+
+        # Reads the MSA from the file and stores it in a object
+        with open('working.aln', 'r') as msafile:
+            msa = AlignIO.read(msafile, 'clustal', alphabet=generic_protein)
+
+        # Uses TrimAI Strict procedure to make trimmed msa and read
+        command = 'trimal -in working.aln -out trimmed.aln -htmlout html.html -strict'
+        subprocess.run(command.split())
+        with open('trimmed.aln', 'r') as trimmed:
+            trimmed_msa = AlignIO.read(trimmed, 'clustal', alphabet=generic_protein)
+
+        clusters.append(Cluster(thisclusterrecords, _gen_random_color(), msa, trimmed_msa,
+                                node.id, idxs))
+
+    # Deletes the temporaly folder tree
+    os.chdir(os.pardir)
+    shutil.rmtree('./tcoffee')
 
     return clusters
