@@ -5,6 +5,7 @@ saves all the records in Biopyhton library'''
 import statistics
 import pickle
 import time
+import urllib
 from collections import OrderedDict
 from Bio import ExPASy
 from Bio import SwissProt
@@ -24,11 +25,18 @@ def getrecords(filename='list.list'):
     print('Fetching records ...')
     records = set()
     for record in aclist:
-        time.sleep(0.25)
-        print('Fetching record {} ...'.format(record))
-        handle = ExPASy.get_sprot_raw(record)
-        records.add(SwissProt.read(handle))
-    print('Completed')
+        while True:
+            try:
+                time.sleep(0.1)
+                print('Fetching record {} ...'.format(record))
+                handle = ExPASy.get_sprot_raw(record)
+                records.add(SwissProt.read(handle))
+                break
+            except (urllib.error.HTTPError, urllib.error.URLError):
+                print('Network error wating for a second ...')
+                time.sleep(1)
+
+    print('All records fetched ...')
     return itertodict(records)
 
 def getpdb(recordsdict):

@@ -64,8 +64,9 @@ def treetraversal(node, records: OrderedDict, sim_threshold: float=20.0):
     os.chdir('tcoffee')
 
     writefasta(currentrecords, 'working.fasta')
-    command = 't_coffee -seq working.fasta -mode accurate -matrix=blosum50mt -pdb_type dn \
-               -pdb_min_sim 80 -pdb_min_cov 20'
+    #command = 't_coffee -seq working.fasta -mode accurate -matrix=blosum50mt -pdb_type dn \
+    #           -pdb_min_sim 50 -pdb_min_cov 20'
+    command = 't_coffee -seq working.fasta -outfile=working.aln'
     subprocess.run(command.split())
 
     command = 't_coffee -other_pg seq_reformat -in working.aln -output sim'
