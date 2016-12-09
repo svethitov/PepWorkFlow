@@ -10,3 +10,4 @@ tcoffee/
 *.score_ascii
 *.png
 *.txt
+test.py
