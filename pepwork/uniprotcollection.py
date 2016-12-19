@@ -1,7 +1,9 @@
 '''Defines the classes necessary for the Workflow'''
 
+import os
 import pepwork.extract
 import pepwork.tree
+import pandas as pd
 from pepwork.cluster import Cluster
 from pepwork.clustering import getfeaturesvector
 from pepwork.plots import clustersdendrogram, plot3dscatter
@@ -17,12 +19,16 @@ class UniProtCollection:
 
         self.records = pepwork.extract.getpdb(self.allrecords)
         self.ssfeatures = getfeaturesvector(self.records)
+        self.features_df = pd.DataFrame.from_dict(
+            self.ssfeatures, orient='index')
+        self.features_df.columns = ['Lenght', 'Alpha', 'Beta', 'Turn', 'Disulfid'] 
         self.clusters = []
         self.outliers = None
         self.clustersdict = {key: -1 for key in self.records.keys()}
         self.rootnode = None
         self.linkagematrix = None
         self.nodecolor = dict()
+        self.parentnodes = []
 
     def save_records(self):
         '''Saves all records of the object into binary
@@ -42,10 +48,11 @@ class UniProtCollection:
 
     def cluster(self, sim_threshold=20.0):
         '''Clusters the pdb cross-refed records'''
-        self.clusters = pepwork.tree.treetraversal(
+        self.clusters = pepwork.tree.treetraversal_clustering(
             node=self.rootnode,
             records=self.records,
             sim_threshold=sim_threshold)
+
         for idx, cluster in enumerate(self.clusters):
             for key in cluster.get_keys():
                 self.clustersdict[key] = idx
@@ -66,10 +73,34 @@ class UniProtCollection:
         outliers_dict = {key: self.records[key] for key in outliers}
         self.outliers = Cluster(outliers_dict, '#D3D3D3')
 
-        # Gets ss features for each cluster from the master ss features dictionary
+        # Gets ss features for each record in cluster
+        # from the master ss features dictionary
+        # and fill dataframe
         for cluster in self.clusters + [self.outliers]:
             for key in cluster.records.keys():
                 cluster.ssfeatures[key] = self.ssfeatures[key]
+            cluster.ssfeatures_df = self.features_df\
+                .loc[[key for key in cluster.records.keys()]]
+
+        self.outliers.ssfeatures_df = self.features_df\
+                .loc[[key for key in outliers]]
+
+        # Gets all nodes that are root for a cluster
+        for cluster in self.clusters:
+            self.parentnodes.append(cluster.parentnode)
+
+    def find_motifs(self, e_val):
+        '''Find Motifs for the clusters'''
+        os.mkdir('MEME_motifs')
+        os.chdir('MEME_motifs')
+        print(self.parentnodes)
+        pepwork.tree.treetraversal_motifs(
+            node=self.rootnode,
+            records=self.records,
+            parentnodes=self.parentnodes,
+            e_val=e_val
+        )
+        os.chdir(os.pardir)
 
 
     def plot_dendrogram(self):
@@ -81,13 +112,10 @@ class UniProtCollection:
         clustersdendrogram(self.linkagematrix, [key for key in self.ssfeatures.keys()],
                            self.nodecolor)
 
-    def plot_3dscatter(self, filename='3dscatter.html', xaxis=1, yaxis=2, zaxis=3):
+    def plot_3dscatter(self, filename='3dscatter.html'):
         '''Plots 3D scatterplot for all pdb records'''
         plot3dscatter(
             clusters=self.clusters,
             filename=filename,
-            outliers=self.outliers,
-            xaxis=xaxis,
-            yaxis=yaxis,
-            zaxis=zaxis
+            outliers=self.outliers
         )

@@ -6,6 +6,7 @@ list.list
 *.aln
 *.swp
 tcoffee/
+MEME_motifs/
 *.score_html
 *.score_ascii
 *.png

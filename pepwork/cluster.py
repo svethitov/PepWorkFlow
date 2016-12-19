@@ -1,8 +1,10 @@
 '''Cluster class'''
 
 from collections import OrderedDict
-import pepwork.extract
 from Bio import AlignIO
+import pepwork.extract
+import pandas as pd
+
 
 class Cluster:
     '''Class holding the records in a single cluster'''
@@ -13,6 +15,7 @@ class Cluster:
         self.parentnode = parentnode
         self.membernodes = membernodes
         self.ssfeatures = OrderedDict()
+        self.ssfeatures_df = None
         self.msa = msa
         self.trimmed_msa = trimmed_msa
 
