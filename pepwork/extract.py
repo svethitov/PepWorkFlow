@@ -6,6 +6,7 @@ import statistics
 import pickle
 import time
 import urllib
+import copy
 from collections import OrderedDict
 from Bio import ExPASy
 from Bio import SwissProt
@@ -13,6 +14,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from pepwork.plots import hist
+from pepwork.clustering import toint
 
 def getrecords(filename='list.list'):
     '''Extract the list of AC and returns them in a set of SwissProt Record objects'''
@@ -38,6 +40,53 @@ def getrecords(filename='list.list'):
 
     print('All records fetched ...')
     return itertodict(records)
+
+def _get_start_stop(feature_start, feature_stop):
+    '''Catches ValueErrors if position unknown'''
+    try:
+        start_aa = toint(feature_start)
+    except ValueError:
+        print('There was an error in reading the begining AA.')
+        start_aa = int(input('Please enter the value manually: '))
+    
+    try:
+        end_aa = toint(feature_stop)
+    except ValueError:
+        print('There was an error in reading the end AA.')
+        end_aa = int(input('Please enter the value manually: '))
+
+    return start_aa, end_aa          
+                
+
+def trim_sequence(records: OrderedDict) -> OrderedDict:
+    '''Returns the same dictionary with SwissProt Objects but with
+    trimmed sequences only to the CHAIN or PEPTIDE region'''
+    print('Creating trimmed version of the sequences ...')
+    output_dict = copy.deepcopy(records)
+
+    for key in output_dict.keys():
+        start_aa = None
+        print('Finding begining and end of sequence {} ...'.format(key))
+        for feature in output_dict[key].features:
+            if feature[0] == 'CHAIN':
+                print('CHAIN annotation found ...')
+                start_aa, end_aa = _get_start_stop(feature[1], feature[2])
+                print('Begins at {} ...'.format(start_aa))
+                print('Ends at {} ...'.format(end_aa))
+                break
+        if start_aa is None:
+            for feature in output_dict[key].features:
+                if feature[0] == 'PEPTIDE':
+                    print('PEPTIDE annotation found ...')
+                    start_aa, end_aa = _get_start_stop(feature[1], feature[2])
+                    print('Begins at {} ...'.format(start_aa))
+                    print('Ends at {} ...'.format(end_aa))
+                    break
+
+        output_dict[key].sequence = output_dict[key].sequence[start_aa - 1:end_aa]
+    
+    return output_dict
+
 
 def getpdb(recordsdict):
     '''Extract all records with pdb cross-reference'''
@@ -84,12 +133,14 @@ def loadbinary(filename='records.bin'):
     with open(filename, 'rb') as myfile:
         return pickle.load(myfile)
 
-def writefasta(seqrecords, filename):
+def writefasta(seqrecords: OrderedDict, filename):
     '''Writes records to fasta file ready for alignment'''
     workingseqs = []
-    for record in seqrecords:
-        print('Preparing {} for writing to file...'.format(record.accessions[0]))
-        workingseqs.append(SeqRecord(Seq(record.sequence), id=record.accessions[0]))
+    for record in seqrecords.keys():
+        print('Preparing {} for writing to file...'.format(seqrecords[record].accessions[0]))
+        workingseqs.append(SeqRecord(Seq(seqrecords[record].sequence),
+                                     id=seqrecords[record].accessions[0])
+                          )
     print('Writing fasta file ...')
     SeqIO.write(workingseqs, filename, 'fasta')
     print('File written ...')

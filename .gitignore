@@ -3,10 +3,12 @@
 __pycache__/
 list.list
 *.fasta
+*.fa
 *.aln
 *.swp
 tcoffee/
 MEME_motifs/
+blast/
 *.score_html
 *.score_ascii
 *.png

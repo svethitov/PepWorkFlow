@@ -12,7 +12,7 @@ from scipy.spatial.distance import pdist
 from Bio import AlignIO
 from Bio.Alphabet import generic_protein
 from pepwork.clustering import removeprevlabel, scale
-from pepwork.extract import writefasta, itertodict
+from pepwork.extract import writefasta
 from pepwork.cluster import Cluster
 
 def _gen_random_color():
@@ -54,9 +54,9 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
     idxs = node.pre_order()
     keyslist = [key for key in records.keys()]
     print('Number of children {}'.format(len(idxs)))
-    currentrecords = []
+    currentrecords = {}
     for idx in idxs:
-        currentrecords.append(records[keyslist[idx]])
+        currentrecords[keyslist[idx]] = records[keyslist[idx]]
 
     if os.path.isdir('./tcoffee'):
         print('Deleting old tcoffee directory ...')
@@ -170,7 +170,6 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
         idxs = []
         idxs += childrentraversal(node.left)
         idxs += childrentraversal(node.right)
-        thisclusterrecords = itertodict(currentrecords)
 
         ## Making accurate alignment using Expresso for the cluster
         #command = 't_coffee -seq working.fasta -mode psicoffee'
@@ -186,7 +185,7 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
         with open('trimmed.aln', 'r') as trimmed:
             trimmed_msa = AlignIO.read(trimmed, 'clustal', alphabet=generic_protein)
 
-        clusters.append(Cluster(thisclusterrecords, _gen_random_color(), msa, trimmed_msa,
+        clusters.append(Cluster(currentrecords, _gen_random_color(), msa, trimmed_msa,
                                 node.id, idxs))
 
     # Deletes the temporaly folder tree

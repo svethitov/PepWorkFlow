@@ -1,10 +1,13 @@
 '''Defines the classes necessary for the Workflow'''
 
 import os
-import pepwork.extract
-import pepwork.tree
+import shutil
+import subprocess
+from collections import OrderedDict
 import pandas as pd
 from pepwork.cluster import Cluster
+import pepwork.extract
+import pepwork.tree
 from pepwork.clustering import getfeaturesvector
 from pepwork.plots import clustersdendrogram, plot3dscatter
 
@@ -17,11 +20,12 @@ class UniProtCollection:
         elif mode == 'bin':
             self.allrecords = pepwork.extract.loadbinary()
 
-        self.records = pepwork.extract.getpdb(self.allrecords)
+        self.allrecords_trimmed = pepwork.extract.trim_sequence(self.allrecords)
+        self.records = pepwork.extract.getpdb(self.allrecords_trimmed)
         self.ssfeatures = getfeaturesvector(self.records)
         self.features_df = pd.DataFrame.from_dict(
             self.ssfeatures, orient='index')
-        self.features_df.columns = ['Lenght', 'Alpha', 'Beta', 'Turn', 'Disulfid'] 
+        self.features_df.columns = ['Lenght', 'Alpha', 'Beta', 'Turn', 'Disulfid']
         self.clusters = []
         self.outliers = None
         self.clustersdict = {key: -1 for key in self.records.keys()}
@@ -89,8 +93,47 @@ class UniProtCollection:
         for cluster in self.clusters:
             self.parentnodes.append(cluster.parentnode)
 
-    def find_motifs(self, e_val):
+    def find_motifs(self, e_val='0.005'):
         '''Find Motifs for the clusters'''
+        ## Create BLAST DB from all sequences without pdb cross-ref
+
+        # Deletes blast directory if present
+        if os.path.isdir('./blast'):
+            print('Deleting old blast directory ...')
+            shutil.rmtree('./blast')
+
+        print('Creating blast directory ...')
+        os.mkdir('blast')
+        os.chdir('blast')
+        os.mkdir('blastdb')
+        os.chdir('blastdb')
+        keys_without_3d = \
+            set([key for key in self.allrecords_trimmed]) - set([key for key in self.records])
+        records_without_3d = OrderedDict()
+        for key in keys_without_3d:
+            records_without_3d[key] = self.allrecords_trimmed[key]
+        pepwork.extract.writefasta(records_without_3d, 'no_3d.fasta')
+
+        # Makes blast db
+        print('Creating BLAST DataBase ...')
+        command = 'makeblastdb -in no_3d.fasta -parse_seqids -dbtype prot -out working'
+        subprocess.run(command.split())
+        os.environ['BLASTDB'] = os.getcwd()
+        os.chdir(os.pardir)
+
+        # Extends each cluster
+        for idx, cluster in enumerate(self.clusters):
+            cluster.save_msa('Cluster_{}.fasta'.format(idx))
+            command = 'psiblast -in_msa Cluster_{}.fasta -ignore_msa_master \
+                        -out cluster_{}.csv -outfmt=10 -evalue 0.01 -db working'.format(idx, idx)
+            print('Running PSIBLAST with Cluster {}'.format(idx))
+            subprocess.run(command.split())
+            with open('cluster_{}.csv'.format(idx)) as csv_file:
+                cluster.extra_records = pd.read_csv(csv_file, header=None, index_col=1)
+
+        os.chdir(os.pardir)
+
+
         os.mkdir('MEME_motifs')
         os.chdir('MEME_motifs')
         print(self.parentnodes)

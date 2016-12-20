@@ -2,8 +2,9 @@
 
 from collections import OrderedDict
 from Bio import AlignIO
+from Bio.Align import AlignInfo
 import pepwork.extract
-import pandas as pd
+
 
 
 class Cluster:
@@ -18,6 +19,8 @@ class Cluster:
         self.ssfeatures_df = None
         self.msa = msa
         self.trimmed_msa = trimmed_msa
+        self.extra_records = None
+        self.extended_records = OrderedDict()
 
     def save_fasta(self, filename: str):
         '''Writes fasta file with the records'''
@@ -38,3 +41,10 @@ class Cluster:
     def save_trimmed_msa(self, filename: str, outformat: str='fasta'):
         '''Writes MSA file from the full msa of the cluster'''
         AlignIO.write(self.trimmed_msa, filename, outformat)
+
+    def get_consensus(self):
+        '''Outpus consensus sequence of the cluster'''
+        summary_align = AlignInfo.SummaryInfo(self.msa)
+        consensus = summary_align.dumb_consensus()
+
+
