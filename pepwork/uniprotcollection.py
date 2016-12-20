@@ -136,13 +136,34 @@ class UniProtCollection:
 
         os.mkdir('MEME_motifs')
         os.chdir('MEME_motifs')
-        print(self.parentnodes)
-        pepwork.tree.treetraversal_motifs(
-            node=self.rootnode,
-            records=self.records,
-            parentnodes=self.parentnodes,
-            e_val=e_val
-        )
+
+        for idx, cluster in enumerate(self.clusters):
+            print('Finding Motifs for Cluster {}'.format(idx))
+            working_records = OrderedDict()
+            for key in cluster.get_keys():
+                working_records[key] = self.allrecords_trimmed[key]
+            for key in cluster.extra_records.index:
+                working_records[key] = self.allrecords_trimmed[key]
+
+            pepwork.extract.writefasta(working_records, 'working.fasta')
+
+            # Purges redundant sequences
+            command = 't_coffee -other_pg seq_reformat -in working.fasta \
+                    -action +trim _seq_%%90'
+            print('Removing redundant sequences ...')
+            with open('trimmed.fasta', 'w') as trimmedfile:
+                subprocess.run(command.split(), stdout=trimmedfile)
+
+            command = 'meme trimmed.fasta -mod zoops -nmotifs 8 -evt {}\
+                      -maxiter 1000 -o meme_cluster_{}'.format(e_val, idx)
+            subprocess.run(command.split())
+
+        #pepwork.tree.treetraversal_motifs(
+        #    node=self.rootnode,
+        #    records=self.records,
+        #    parentnodes=self.parentnodes,
+        #    e_val=e_val
+        #)
         os.chdir(os.pardir)
 
 

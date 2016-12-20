@@ -45,6 +45,6 @@ class Cluster:
     def get_consensus(self):
         '''Outpus consensus sequence of the cluster'''
         summary_align = AlignInfo.SummaryInfo(self.msa)
-        consensus = summary_align.dumb_consensus()
+        return summary_align.dumb_consensus()
 
 

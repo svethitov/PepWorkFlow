@@ -48,15 +48,15 @@ def _get_start_stop(feature_start, feature_stop):
     except ValueError:
         print('There was an error in reading the begining AA.')
         start_aa = int(input('Please enter the value manually: '))
-    
+
     try:
         end_aa = toint(feature_stop)
     except ValueError:
         print('There was an error in reading the end AA.')
         end_aa = int(input('Please enter the value manually: '))
 
-    return start_aa, end_aa          
-                
+    return start_aa, end_aa
+
 
 def trim_sequence(records: OrderedDict) -> OrderedDict:
     '''Returns the same dictionary with SwissProt Objects but with
@@ -84,7 +84,7 @@ def trim_sequence(records: OrderedDict) -> OrderedDict:
                     break
 
         output_dict[key].sequence = output_dict[key].sequence[start_aa - 1:end_aa]
-    
+
     return output_dict
 
 
