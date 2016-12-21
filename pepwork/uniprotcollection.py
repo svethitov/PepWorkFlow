@@ -128,8 +128,12 @@ class UniProtCollection:
                         -out cluster_{}.csv -outfmt=10 -evalue 0.01 -db working'.format(idx, idx)
             print('Running PSIBLAST with Cluster {}'.format(idx))
             subprocess.run(command.split())
-            with open('cluster_{}.csv'.format(idx)) as csv_file:
-                cluster.extra_records = pd.read_csv(csv_file, header=None, index_col=1)
+            try:
+                with open('cluster_{}.csv'.format(idx)) as csv_file:
+                    cluster.extra_records = pd.read_csv(csv_file, header=None, index_col=1)
+            except pd.io.common.EmptyDataError:
+                print('Blast returns no results! ...')
+
 
         os.chdir(os.pardir)
 
@@ -142,8 +146,9 @@ class UniProtCollection:
             working_records = OrderedDict()
             for key in cluster.get_keys():
                 working_records[key] = self.allrecords_trimmed[key]
-            for key in cluster.extra_records.index:
-                working_records[key] = self.allrecords_trimmed[key]
+            if cluster.extra_records is not None:
+                for key in cluster.extra_records.index:
+                    working_records[key] = self.allrecords_trimmed[key]
 
             pepwork.extract.writefasta(working_records, 'working.fasta')
 
