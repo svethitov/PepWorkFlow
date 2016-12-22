@@ -1,10 +1,8 @@
 '''Adds UPGMA tree building'''
 
-import os
 import subprocess
 import re
 import random
-import shutil
 from collections import OrderedDict
 from scipy.cluster.hierarchy import linkage
 from scipy.cluster.hierarchy import cophenet, to_tree
@@ -58,14 +56,6 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
     for idx in idxs:
         currentrecords[keyslist[idx]] = records[keyslist[idx]]
 
-    if os.path.isdir('./tcoffee'):
-        print('Deleting old tcoffee directory ...')
-        shutil.rmtree('./tcoffee')
-
-    print('Creating new tcoffee directory in {} ...'.format(os.getcwd()))
-    os.mkdir('tcoffee')
-    os.chdir('tcoffee')
-
     writefasta(currentrecords, 'working.fasta')
     #command = 't_coffee -seq working.fasta -mode accurate -pdb_type dn \
     #           -pdb_min_sim 50 -pdb_min_cov 20'
@@ -81,31 +71,31 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
 
     # Runs PSI-coffee alignment
     command = 't_coffee -seq working.fasta -mode psicoffee -outfile psi62.aln -output clustalw'
-    subprocess.run(command.split())
+    #subprocess.run(command.split())
 
     # Runs PSI-coffee alignment with blosum40
     command = 't_coffee -seq working.fasta -matrix blosum40mt -mode psicoffee \
                 -outfile psi40.aln -output clustalw'
-    subprocess.run(command.split())
+    #subprocess.run(command.split())
 
     # Runs M-Coffee
     command = 't_coffee -seq working.fasta -mode mcoffee -outfile m62.aln -output clustalw'
-    subprocess.run(command.split())
+    #subprocess.run(command.split())
 
     # Runs M-Coffee with blosum40
     command = 't_coffee -seq working.fasta -matrix blosum40mt -mode mcoffee \
                 -outfile m40.aln -output clustalw'
-    subprocess.run(command.split())
+    #subprocess.run(command.split())
 
     # Runs Local alignment using T-Coffee
     command = 't_coffee -seq working.fasta -method lalign_id_pair \
               -outfile local62.aln -output clustalw'
-    subprocess.run(command.split())
+    #subprocess.run(command.split())
 
     # Runs Local alignment using T-Coffee with blosum40
     command = 't_coffee -seq working.fasta -matrix blosum40mt -method \
               lalign_id_pair -outfile local40.aln -output clustalw'
-    subprocess.run(command.split())
+    #subprocess.run(command.split())
 
     ## Runs Expresso alignment
     #command = 't_coffee -seq working.fasta -mode accurate \
@@ -120,14 +110,14 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
     # Comparing alignments
     with open('alignments.txt', 'w') as myfile:
         myfile.write('./default62.aln\n')
-        myfile.write('./psi62.aln\n')
-        myfile.write('./m62.aln\n')
-        myfile.write('./local62.aln\n')
+        #myfile.write('./psi62.aln\n')
+        #myfile.write('./m62.aln\n')
+        #myfile.write('./local62.aln\n')
         #myfile.write('./accurate62.aln\n')
         myfile.write('./default40.aln\n')
-        myfile.write('./psi40.aln\n')
-        myfile.write('./m40.aln\n')
-        myfile.write('./local40.aln\n')
+        #myfile.write('./psi40.aln\n')
+        #myfile.write('./m40.aln\n')
+        #myfile.write('./local40.aln\n')
         #myfile.write('./accurate40.aln\n')
 
     command = 'trimal -compareset alignments.txt -out best.aln'
@@ -187,10 +177,6 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
 
         clusters.append(Cluster(currentrecords, _gen_random_color(), msa, trimmed_msa,
                                 node.id, idxs))
-
-    # Deletes the temporaly folder tree
-    os.chdir(os.pardir)
-    shutil.rmtree('./tcoffee')
 
     return clusters
 

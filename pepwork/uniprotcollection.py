@@ -10,6 +10,7 @@ import pepwork.extract
 import pepwork.tree
 from pepwork.clustering import getfeaturesvector
 from pepwork.plots import clustersdendrogram, plot3dscatter
+from pepwork.motifs.group import Group
 
 class UniProtCollection:
     '''Class for storing collection of SwissProt records and manipulating them'''
@@ -20,6 +21,7 @@ class UniProtCollection:
         elif mode == 'bin':
             self.allrecords = pepwork.extract.loadbinary()
 
+        self.kword = os.path.basename(os.getcwd()).split()[0]
         self.allrecords_trimmed = pepwork.extract.trim_sequence(self.allrecords)
         self.records = pepwork.extract.getpdb(self.allrecords_trimmed)
         self.ssfeatures = getfeaturesvector(self.records)
@@ -33,6 +35,7 @@ class UniProtCollection:
         self.linkagematrix = None
         self.nodecolor = dict()
         self.parentnodes = []
+        self.groups = []
 
     def save_records(self):
         '''Saves all records of the object into binary
@@ -52,10 +55,22 @@ class UniProtCollection:
 
     def cluster(self, sim_threshold=20.0):
         '''Clusters the pdb cross-refed records'''
+        if os.path.isdir('./tcoffee'):
+            print('Deleting old tcoffee directory ...')
+            shutil.rmtree('./tcoffee')
+
+        print('Creating new tcoffee directory in {} ...'.format(os.getcwd()))
+        os.mkdir('tcoffee')
+        os.chdir('tcoffee')
+
         self.clusters = pepwork.tree.treetraversal_clustering(
             node=self.rootnode,
             records=self.records,
             sim_threshold=sim_threshold)
+
+        # Deletes the temporaly folder tree
+        os.chdir(os.pardir)
+        shutil.rmtree('./tcoffee')
 
         for idx, cluster in enumerate(self.clusters):
             for key in cluster.get_keys():
@@ -93,7 +108,7 @@ class UniProtCollection:
         for cluster in self.clusters:
             self.parentnodes.append(cluster.parentnode)
 
-    def find_motifs(self, e_val='0.005'):
+    def find_motifs(self):
         '''Find Motifs for the clusters'''
         ## Create BLAST DB from all sequences without pdb cross-ref
 
@@ -104,9 +119,11 @@ class UniProtCollection:
 
         print('Creating blast directory ...')
         os.mkdir('blast')
+        os.mkdir('MEME_motifs')
         os.chdir('blast')
         os.mkdir('blastdb')
         os.chdir('blastdb')
+
         keys_without_3d = \
             set([key for key in self.allrecords_trimmed]) - set([key for key in self.records])
         records_without_3d = OrderedDict()
@@ -119,13 +136,13 @@ class UniProtCollection:
         command = 'makeblastdb -in no_3d.fasta -parse_seqids -dbtype prot -out working'
         subprocess.run(command.split())
         os.environ['BLASTDB'] = os.getcwd()
-        os.chdir(os.pardir)
+        os.chdir(os.pardir) # get back to blast dir
 
         # Extends each cluster
         for idx, cluster in enumerate(self.clusters):
             cluster.save_msa('Cluster_{}.fasta'.format(idx))
             command = 'psiblast -in_msa Cluster_{}.fasta -ignore_msa_master \
-                        -out cluster_{}.csv -outfmt=10 -evalue 0.01 -db working'.format(idx, idx)
+                        -out cluster_{}.csv -outfmt=10 -evalue 0.005 -db working'.format(idx, idx)
             print('Running PSIBLAST with Cluster {}'.format(idx))
             subprocess.run(command.split())
             try:
@@ -134,15 +151,11 @@ class UniProtCollection:
             except pd.io.common.EmptyDataError:
                 print('Blast returns no results! ...')
 
-
-        os.chdir(os.pardir)
-
-
-        os.mkdir('MEME_motifs')
-        os.chdir('MEME_motifs')
-
+        group_idx = 0
+        # Creates group from all extended clusters
+        print('Creating groups from clusters ...')
         for idx, cluster in enumerate(self.clusters):
-            print('Finding Motifs for Cluster {}'.format(idx))
+            print('working on cluster {}'.format(idx))
             working_records = OrderedDict()
             for key in cluster.get_keys():
                 working_records[key] = self.allrecords_trimmed[key]
@@ -150,26 +163,56 @@ class UniProtCollection:
                 for key in cluster.extra_records.index:
                     working_records[key] = self.allrecords_trimmed[key]
 
-            pepwork.extract.writefasta(working_records, 'working.fasta')
+            os.chdir(os.pardir) # get back to root dir
+            os.chdir('MEME_motifs')
 
-            # Purges redundant sequences
-            command = 't_coffee -other_pg seq_reformat -in working.fasta \
-                    -action +trim _seq_%%90'
-            print('Removing redundant sequences ...')
-            with open('trimmed.fasta', 'w') as trimmedfile:
-                subprocess.run(command.split(), stdout=trimmedfile)
 
-            command = 'meme trimmed.fasta -mod zoops -nmotifs 8 -evt {}\
-                      -maxiter 1000 -o meme_cluster_{}'.format(e_val, idx)
+            self.groups.append(Group(
+                records=working_records,
+                idx=group_idx,
+                kword=self.kword,
+                cluster_idx=idx
+            ))
+            group_idx += 1
+
+        os.chdir(os.pardir) # get back to root dir
+        # Creates gropus from outliers
+        os.chdir('blast')
+        print('Creating groups from outliers ...')
+        for idx, outlier in enumerate(self.outliers.get_keys()):
+            print('Working on {}'.format(outlier))
+            pepwork.extract.writefasta(
+                {outlier: self.allrecords_trimmed[outlier]},
+                'query.fasta'
+            )
+            command = 'blastp -query query.fasta -out output.csv \
+                -outfmt=10 -evalue 0.005 -db working'
             subprocess.run(command.split())
+            try:
+                with open('output.csv', 'r') as csv_file:
+                    temp_df = pd.read_csv(csv_file, header=None, index_col=1)
+            except pd.io.common.EmptyDataError:
+                print('Blast returns no results! ...')
+                temp_df = None
 
-        #pepwork.tree.treetraversal_motifs(
-        #    node=self.rootnode,
-        #    records=self.records,
-        #    parentnodes=self.parentnodes,
-        #    e_val=e_val
-        #)
-        os.chdir(os.pardir)
+            os.chdir(os.pardir) # get back to root dir
+            os.chdir('MEME_motifs')
+
+            working_records = OrderedDict()
+            working_records[outlier] = self.allrecords_trimmed[outlier]
+            if temp_df is not None:
+                for key in temp_df.index:
+                    working_records[key] = self.allrecords_trimmed[key]
+
+                self.groups.append(Group(
+                    records=working_records,
+                    idx=group_idx,
+                    kword=self.kword,
+                    cluster_idx=outlier
+                ))
+                group_idx += 1
+
+        os.chdir(os.pardir) # get back to root dir
 
 
     def plot_dendrogram(self):

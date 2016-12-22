@@ -7,6 +7,7 @@ import pickle
 import time
 import urllib
 import copy
+import os
 from collections import OrderedDict
 from Bio import ExPASy
 from Bio import SwissProt
@@ -16,14 +17,29 @@ from Bio.SeqRecord import SeqRecord
 from pepwork.plots import hist
 from pepwork.clustering import toint
 
-def getrecords(filename='list.list'):
+def getrecords(filename='records.list', children_filename='children.list'):
     '''Extract the list of AC and returns them in a set of SwissProt Record objects'''
-    print('Read list...')
-    aclist = []
+    print('Reading records list...')
+    aclist = set()
     with open(filename, 'r') as myfile:
         for line in myfile:
-            aclist.append(line.rstrip('\n'))
-    print('Completed ...')
+            aclist.add(line.rstrip('\n'))
+    print('{} AC read ...'.format(len(aclist)))
+
+    if os.path.isfile(children_filename):
+        print('Reading children list ...')
+        children_list = set()
+        with open(children_filename, 'r') as myfile:
+            for line in myfile:
+                children_list.add(line.rstrip('\n'))
+        print('{} AC read ...'.format(len(children_list)))
+
+        aclist = aclist - children_list
+        print('{} records after removing children'.format(len(aclist)))
+
+    print('Starting fetching {} records'.format(len(aclist)))
+
+
     print('Fetching records ...')
     records = set()
     for record in aclist:
