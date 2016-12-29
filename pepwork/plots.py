@@ -166,13 +166,13 @@ def plot3dscatter(clusters, filename, outliers=None):
         ])
     )
     fig = go.Figure(data=data, layout=layout)
-    plot(fig, filename)
+    plot(fig, '3dscatter.html')
 
 def hist(vector, filename):
     '''Plots histogram using plotly'''
-    data = [go.Histogram(x=vector, autobinx=False, xbins=dict(start=min(vector),
-                                                              size=5,
-                                                              end=(max(vector) + 25)),
+    data = [go.Histogram(x=vector, autobinx=True, xbins=dict(start=min(vector),
+                                                             size=5,
+                                                             end=(max(vector) + 25)),
                          marker=dict(color='ADD8E6'))]
     fig = go.Figure(data=data)
     plot(fig, filename=filename)
@@ -185,7 +185,7 @@ def clustersdendrogram(data, labels, nodecolor):
             return nodecolor[index]
         else:
             return '#D3D3D3'
-    plt.figure()
+    plt.figure(figsize=(16, 9))
     plt.title('Dendrogram')
     plt.xlabel('Samples')
     plt.ylabel('Distance')
@@ -194,4 +194,4 @@ def clustersdendrogram(data, labels, nodecolor):
         labels=labels,
         link_color_func=color_func
     )
-    plt.show()
+    plt.savefig('dendrogram.eps', format='eps', dpi=900)

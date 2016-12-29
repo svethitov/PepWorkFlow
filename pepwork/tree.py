@@ -71,31 +71,31 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
 
     # Runs PSI-coffee alignment
     command = 't_coffee -seq working.fasta -mode psicoffee -outfile psi62.aln -output clustalw'
-    #subprocess.run(command.split())
+    subprocess.run(command.split())
 
     # Runs PSI-coffee alignment with blosum40
     command = 't_coffee -seq working.fasta -matrix blosum40mt -mode psicoffee \
                 -outfile psi40.aln -output clustalw'
-    #subprocess.run(command.split())
+    subprocess.run(command.split())
 
     # Runs M-Coffee
     command = 't_coffee -seq working.fasta -mode mcoffee -outfile m62.aln -output clustalw'
-    #subprocess.run(command.split())
+    subprocess.run(command.split())
 
     # Runs M-Coffee with blosum40
     command = 't_coffee -seq working.fasta -matrix blosum40mt -mode mcoffee \
                 -outfile m40.aln -output clustalw'
-    #subprocess.run(command.split())
+    subprocess.run(command.split())
 
     # Runs Local alignment using T-Coffee
     command = 't_coffee -seq working.fasta -method lalign_id_pair \
               -outfile local62.aln -output clustalw'
-    #subprocess.run(command.split())
+    subprocess.run(command.split())
 
     # Runs Local alignment using T-Coffee with blosum40
     command = 't_coffee -seq working.fasta -matrix blosum40mt -method \
               lalign_id_pair -outfile local40.aln -output clustalw'
-    #subprocess.run(command.split())
+    subprocess.run(command.split())
 
     ## Runs Expresso alignment
     #command = 't_coffee -seq working.fasta -mode accurate \
@@ -110,23 +110,23 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
     # Comparing alignments
     with open('alignments.txt', 'w') as myfile:
         myfile.write('./default62.aln\n')
-        #myfile.write('./psi62.aln\n')
-        #myfile.write('./m62.aln\n')
-        #myfile.write('./local62.aln\n')
+        myfile.write('./psi62.aln\n')
+        myfile.write('./m62.aln\n')
+        myfile.write('./local62.aln\n')
         #myfile.write('./accurate62.aln\n')
         myfile.write('./default40.aln\n')
-        #myfile.write('./psi40.aln\n')
-        #myfile.write('./m40.aln\n')
-        #myfile.write('./local40.aln\n')
+        myfile.write('./psi40.aln\n')
+        myfile.write('./m40.aln\n')
+        myfile.write('./local40.aln\n')
         #myfile.write('./accurate40.aln\n')
 
-    command = 'trimal -compareset alignments.txt -out best.aln'
+    command = 'trimal -compareset alignments.txt -out best.fasta -fasta'
     subprocess.run(command.split())
 
     # Trimming the best alignment
 
     # Getting sequence similarities
-    command = 't_coffee -other_pg seq_reformat -in best.aln -output sim'
+    command = 't_coffee -other_pg seq_reformat -in best.fasta -output sim'
     with open('sim.txt', 'w') as simfile:
         subprocess.run(command.split(), stdout=simfile)
 
@@ -166,14 +166,14 @@ def treetraversal_clustering(node, records: OrderedDict, sim_threshold: float=20
         #subprocess.run(command.split())
 
         # Reads the MSA from the file and stores it in a object
-        with open('best.aln', 'r') as msafile:
-            msa = AlignIO.read(msafile, 'clustal', alphabet=generic_protein)
+        with open('best.fasta', 'r') as msafile:
+            msa = AlignIO.read(msafile, 'fasta', alphabet=generic_protein)
 
         # Uses TrimAI Strict procedure to make trimmed msa and read
-        command = 'trimal -in best.aln -out trimmed.aln -htmlout html.html -strict'
+        command = 'trimal -in best.fasta -out trimmed.fasta -htmlout html.html -strict'
         subprocess.run(command.split())
-        with open('trimmed.aln', 'r') as trimmed:
-            trimmed_msa = AlignIO.read(trimmed, 'clustal', alphabet=generic_protein)
+        with open('trimmed.fasta', 'r') as trimmed:
+            trimmed_msa = AlignIO.read(trimmed, 'fasta', alphabet=generic_protein)
 
         clusters.append(Cluster(currentrecords, _gen_random_color(), msa, trimmed_msa,
                                 node.id, idxs))

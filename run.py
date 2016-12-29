@@ -19,6 +19,7 @@ def main():
     mycollection.find_motifs()
     mycollection.plot_3dscatter()
     mycollection.plot_dendrogram()
+    mycollection.save_groups()
     print()
     print('Job Done.')
 

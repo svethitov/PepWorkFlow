@@ -108,6 +108,17 @@ class UniProtCollection:
         for cluster in self.clusters:
             self.parentnodes.append(cluster.parentnode)
 
+
+    def _check_ambiguity(self, key) -> OrderedDict:
+        '''Check record for ambiguity character X'''
+        if 'X' not in self.allrecords_trimmed[key].sequence:
+            return self.allrecords_trimmed[key]
+        else:
+            print('Ambiguity character found in sequence {} ...'.format(key))
+            print('Record will not be added because it cause problems with parsing MEME output')
+            return None
+
+
     def find_motifs(self):
         '''Find Motifs for the clusters'''
         ## Create BLAST DB from all sequences without pdb cross-ref
@@ -158,10 +169,14 @@ class UniProtCollection:
             print('working on cluster {}'.format(idx))
             working_records = OrderedDict()
             for key in cluster.get_keys():
-                working_records[key] = self.allrecords_trimmed[key]
+                current_record = self._check_ambiguity(key)
+                if current_record is not None:
+                    working_records[key] = current_record
             if cluster.extra_records is not None:
                 for key in cluster.extra_records.index:
-                    working_records[key] = self.allrecords_trimmed[key]
+                    current_record = self._check_ambiguity(key)
+                    if current_record is not None:
+                        working_records[key] = current_record
 
             os.chdir(os.pardir) # get back to root dir
             os.chdir('MEME_motifs')
@@ -199,10 +214,15 @@ class UniProtCollection:
             os.chdir('MEME_motifs')
 
             working_records = OrderedDict()
+            current_record = self._check_ambiguity(outlier)
+            if current_record is not None:
+                working_records[outlier] = current_record
             working_records[outlier] = self.allrecords_trimmed[outlier]
             if temp_df is not None:
                 for key in temp_df.index:
-                    working_records[key] = self.allrecords_trimmed[key]
+                    current_record = self._check_ambiguity(key)
+                    if current_record is not None:
+                        working_records[key] = current_record
 
                 self.groups.append(Group(
                     records=working_records,
@@ -231,3 +251,10 @@ class UniProtCollection:
             filename=filename,
             outliers=self.outliers
         )
+
+
+    def save_groups(self, filename=None):
+        '''Saves binary representation of the list of groups'''
+        if filename is None:
+            filename = 'groups_{}.bin'.format(self.kword)
+        pepwork.extract.savebinary(self.groups, filename)

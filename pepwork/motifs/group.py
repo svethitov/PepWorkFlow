@@ -1,6 +1,13 @@
 '''Group Class'''
+import os
 import subprocess
+import math
+import numpy as np
+import pandas as pd
+from Bio import motifs
+from Bio.motifs.jaspar import calculate_pseudocounts
 import pepwork.extract
+from pepwork.plots import hist
 
 class Group:
     '''Class holding expanded records list and there motifs'''
@@ -24,7 +31,373 @@ class Group:
         # Runs MEME
         min_seq = min([len(self.records[key].sequence) for key in self.records.keys()])
         print('Running MEME ...')
-        command = 'meme trimmed.fasta -mod zoops -nmotifs 8 -evt 0.0005\
+        command = 'meme trimmed.fasta -mod zoops -nmotifs 8 -evt 0.00005\
                     -maxw {} -maxiter 1000 -o meme_{}_{}_{}'.\
                       format(min_seq, self.kword, self.idx, self.cluster_idx)
         subprocess.run(command.split())
+
+        # Read motifs
+        os.chdir('meme_{}_{}_{}'.format(self.kword, self.idx, self.cluster_idx))
+        with open('meme.txt') as motifs_file:
+            try:
+                self.motifs = motifs.parse(motifs_file, 'meme')
+            except ValueError:
+                self.motifs = None
+                print('No motifs found ...')
+
+        os.chdir(os.pardir)
+
+
+class GroupCollection():
+    '''Holds all groups from all UniprotCollections'''
+    def __init__(self):
+        '''Constructor for GroupCollection Class'''
+        self.collections = pepwork.extract.loadbinary('collections.bin')
+        self.background = {
+            'A': 0.089352,
+            'C': 0.012621,
+            'D': 0.054292,
+            'E': 0.061605,
+            'F': 0.039367,
+            'G': 0.071722,
+            'H': 0.022238,
+            'I': 0.057097,
+            'K': 0.050686,
+            'L': 0.098467,
+            'M': 0.024041,
+            'N': 0.039567,
+            'P': 0.048783,
+            'Q': 0.038465,
+            'R': 0.056696,
+            'S': 0.068216,
+            'T': 0.055995,
+            'V': 0.068216,
+            'W': 0.013022,
+            'Y': 0.029550
+        }
+
+        self.motifs = [] # list to hold all motifs
+
+        # Make motifs data frame
+        print('Populating dataframe ...')
+        position = 0
+        self.all_df = pd.DataFrame(columns=['KW', 'Group_idx', 'Motif_idx',\
+            'position', 'kw_pos'])
+        for kword in self.collections:
+            kw_pos = 0
+            for group in kword:
+                if group.motifs is not None:
+                    for idx in range(0, len(group.motifs)):
+                        if group.motifs[idx] is not None:
+                            temp_df = pd.DataFrame(
+                                [[group.kword, group.idx, idx, position, kw_pos]],
+                                columns=['KW', 'Group_idx', 'Motif_idx', 'position', 'kw_pos']
+                                )
+                            self.all_df = self.all_df.append(temp_df, ignore_index=True)
+                            self.motifs.append(group.motifs[idx])
+                            kw_pos += 2
+                            position += 1
+
+        self.all_df = self.all_df.astype({'Group_idx': int})
+        self.all_df = self.all_df.astype({'Motif_idx': int})
+        self.all_df = self.all_df.astype({'position': int})
+        self.all_df = self.all_df.astype({'kw_pos': int})
+
+        print('Setting background, pseudocount and alphabet on all motifs ...')
+        for idx, motif in enumerate(self.motifs):
+            print('Setting for motif {} {}'.\
+            format(self.all_df.KW.iloc[idx], int(int(self.all_df.kw_pos.iloc[idx])/2)))
+            motif.background = self.background
+            motif.pseudocounts = calculate_pseudocounts(motif)
+
+        self.distance_df = None
+        self.offset_df = None
+
+
+    def compare(self):
+        '''Make pairwise comparison of all motifs'''
+        index_list = []
+        for row in range(0, len(self.all_df)):
+            index_list.append('{}_{}_{}'.format(
+                self.all_df.KW.iloc[row],
+                self.all_df.Group_idx.iloc[row],
+                self.all_df.Motif_idx.iloc[row]
+            ))
+
+        self.distance_df = pd.DataFrame(index=index_list, columns=index_list)
+        self.offset_df = pd.DataFrame(index=index_list, columns=index_list)
+
+        # Populates distance_df and offset_df
+        for idx in range(0, len(self.all_df)):
+            for next_idx in range(idx, len(self.all_df)):
+                row_label = '{}_{}_{}'.format(self.all_df.KW.iloc[idx], \
+                    self.all_df.Group_idx.iloc[idx],\
+                    self.all_df.Motif_idx.iloc[idx])
+                column_label = '{}_{}_{}'.format(self.all_df.KW.iloc[next_idx], \
+                    self.all_df.Group_idx.iloc[next_idx],\
+                    self.all_df.Motif_idx.iloc[next_idx])
+                if row_label != column_label:
+                    print('Calculating correlation for {} vs. {} ...'.\
+                        format(row_label, column_label))
+                    distance, offset = self.motifs[idx].pssm.\
+                        dist_pearson(self.motifs[next_idx].pssm)
+                    self.distance_df.set_value(row_label, column_label, distance)
+                    self.distance_df.set_value(column_label, row_label, distance)
+                    self.offset_df.set_value(row_label, column_label, offset)
+                    self.offset_df.set_value(column_label, row_label, (- offset))
+
+    def _write_links(self, handle, thickness, color, z, idx, second_idx, kw_dict):
+        '''Writes a link to file'''
+        handle.write('kw{} {} {} kw{} {} {} color={},z={},thickness={}\n'.format(
+            kw_dict[self.all_df.KW.iloc[idx]],
+            self.all_df.kw_pos.iloc[idx],
+            self.all_df.kw_pos.iloc[idx] + 1,
+            kw_dict[self.all_df.KW.iloc[second_idx]],
+            self.all_df.kw_pos.iloc[second_idx],
+            self.all_df.kw_pos.iloc[second_idx] + 1,
+            color,
+            z,
+            thickness
+            ))
+
+    def _trim_outliers(self, data, thresh=4):
+        '''Returns the same dimention vector with outliers trimmed
+        This is done for better visual represetation'''
+        data = np.array(data)
+        outliers = self._is_outlier(data, thresh)
+        inliers = []
+        for idx in range(0, len(data)):
+            if not outliers[idx]:
+                inliers.append(data[idx])
+        inliers = np.array(inliers)
+        min_inliers = np.min(inliers)
+        max_inliers = np.max(inliers)
+        mean = np.mean(inliers)
+
+        for idx in range(0, len(data)):
+            if outliers[idx]:
+                if data[idx] > mean:
+                    print('Outlier found on position {} with value {}. Changed to {}'.\
+                        format(idx, data[idx], max_inliers))
+                    data[idx] = max_inliers
+                elif data[idx] < mean:
+                    print('Outlier found on position {} with value {}. Changed to {}'.\
+                        format(idx, data[idx], min_inliers))
+                    data[idx] = min_inliers
+
+        return data
+
+
+    def _is_outlier(self, points, thresh=4):
+        '''Returns a boolean vector with outliers and inliers'''
+        if len(points.shape) == 1:
+            points = points[:, None]
+        median = np.median(points, axis=0)
+        diff = np.sum((points - median)**2, axis=-1)
+        diff = np.sqrt(diff)
+        med_abs_deviation = np.median(diff)
+        modified_z_score = 0.6745 * diff / med_abs_deviation
+        return modified_z_score > thresh
+
+    def _write_data_line(self, handle, kw_dict, idx, value):
+        '''Writes data line in file for circos'''
+        handle.write('kw{} {} {} {}\n'.\
+                    format(kw_dict[self.all_df.KW.iloc[idx]], self.all_df.kw_pos.iloc[idx],
+                           self.all_df.kw_pos.iloc[idx] + 1, value))
+
+
+    def write_circos_files(self):
+        '''Writes data files ready for import in circos'''
+        # Writing 'chromosomes' file
+        print('Writing "chromosomes" file ...')
+        with open('chr.txt', 'w') as myfile:
+            for idx, kword in enumerate(self.all_df.KW.unique()):
+                myfile.write('chr - kw{} {} {} {} color_kw{}\n'.format(
+                    idx,
+                    kword,
+                    0,
+                    max(self.all_df.loc[lambda df: df.KW == kword, 'kw_pos']) + 1,
+                    idx
+                ))
+
+        # adding 'bands' to 'chromosome' file
+        print('Writing bands to file ...')
+        with open('chr.txt', 'a') as myfile:
+            for idx, kword in enumerate(self.all_df.KW.unique()):
+                temp_df = self.all_df.loc[lambda df: df.KW == kword]
+                start = 0
+                color = 'vlgrey_a3'
+                for group in temp_df.Group_idx.unique():
+                    stop = max(temp_df.loc[lambda df: df.Group_idx == group, 'kw_pos']) + 1
+                    myfile.write('band kw{} group{} group{} {} {} {}\n'.format(
+                        idx,
+                        group,
+                        group,
+                        start,
+                        stop,
+                        color
+                    ))
+                    start = stop + 1
+
+        kw_dict = {kw: idx for idx, kw in enumerate(self.all_df.KW.unique())}
+        # writing eval file
+        print('Writing evalue file ...')
+        evalue = []
+        for idx, motif in enumerate(self.motifs):
+            if motif.evalue != 0:
+                evalue.append(math.log10(motif.evalue))
+            else:
+                print('Found wrong evalue for motif {} {} {}'.\
+                    format(self.all_df.KW.iloc[idx], self.all_df.Group_idx.iloc[idx],
+                           motif.name))
+                motif.evalue = float(input('Enter value manually: '))
+                print(motif.evalue)
+                if motif.evalue == 0:
+                    print('Unable to set evalue')
+                    motif.evalue = 1
+                evalue.append(math.log10(motif.evalue))
+
+        for idx, value in enumerate(evalue):
+            if value == 0:
+                evalue[idx] = min(evalue)
+
+        # get all  far outliers trimmed
+        evalue = self._trim_outliers(evalue)
+
+        evalue = [value/np.min(evalue) for value in evalue]
+
+        with open('evalue.txt', 'w') as myfile:
+            for idx, value in enumerate(evalue):
+                self._write_data_line(myfile, kw_dict, idx, value)
+
+        # writing num_occurences file
+        print('Writing num_occurences.txt file ...')
+        num_occurences = [motif.num_occurrences for motif in self.motifs]
+        num_occurences = self._trim_outliers(num_occurences)
+        num_occurences = [value/np.max(num_occurences) for value in num_occurences]
+        with open('num_occurences.txt', 'w') as myfile:
+            for idx, value in enumerate(num_occurences):
+                self._write_data_line(myfile, kw_dict, idx, value)
+
+        # Writing lengths.txt
+        print('Writing lengths.txt ...')
+        lengths = [motif.length for motif in self.motifs]
+        lengths = self._trim_outliers(lengths)
+        lengths = [value/np.max(lengths) for value in lengths]
+        with open('lengths.txt', 'w') as myfile:
+            for idx, value in enumerate(lengths):
+                self._write_data_line(myfile, kw_dict, idx, value)
+
+        # Writing text_labels.txt
+        print('Writing text_labels.txt ...')
+        with open('text_labels.txt', 'w') as myfile:
+            for idx in range(0, len(self.motifs)):
+                self._write_data_line(myfile, kw_dict, idx, idx)
+
+        # Writing links.txt file
+        print('Writing links.txt file ...')
+        with open('links.txt', 'w') as myfile:
+            for idx in range(0, len(self.motifs)):
+                for second_idx in range(idx, len(self.motifs)):
+                    if self.distance_df.iloc[idx, second_idx] < 0.05:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=4,
+                            color='reds-9-seq-9',
+                            z=80,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+                    elif self.distance_df.iloc[idx, second_idx] < 0.1:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=4,
+                            color='reds-9-seq-8',
+                            z=70,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+                    elif self.distance_df.iloc[idx, second_idx] < 0.15:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=3,
+                            color='reds-9-seq-7',
+                            z=60,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+                    elif self.distance_df.iloc[idx, second_idx] < 0.20:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=3,
+                            color='reds-9-seq-6',
+                            z=50,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+                    elif self.distance_df.iloc[idx, second_idx] < 0.25:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=2,
+                            color='reds-9-seq-5',
+                            z=40,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+                    elif self.distance_df.iloc[idx, second_idx] < 0.30:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=2,
+                            color='reds-9-seq-4',
+                            z=30,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+                    elif self.distance_df.iloc[idx, second_idx] < 0.35:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=1,
+                            color='reds-9-seq-3_a1',
+                            z=20,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+                    elif self.distance_df.iloc[idx, second_idx] < 0.40:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=1,
+                            color='reds-9-seq-2_a2',
+                            z=10,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+                    elif self.distance_df.iloc[idx, second_idx] < 0.45:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=1,
+                            color='reds-9-seq-1_a3',
+                            z=0,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+
+
+    def plot_hist(self, mode='distance', filename='distance.html'):
+        '''Plots histogram of distances between motifs'''
+        values = []
+        for idx in range(0, len(self.motifs)):
+            for second_idx in range(idx, len(self.motifs)):
+                if mode == 'distance':
+                    values.append(self.distance_df.iloc[idx, second_idx])
+                elif mode == 'offset':
+                    values.append(self.offset_df.iloc[idx, second_idx])
+        hist(values, filename)

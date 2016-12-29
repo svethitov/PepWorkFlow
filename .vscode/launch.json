@@ -2,6 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "My PepWorkFlow Integrated Terminal/Console",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": true,
+            "pythonPath": "${config.python.pythonPath}",
+            "program": "/home/biophys2/Documents/AMP_Project/db/UniProt/PepWorkFlow/run.py",
+            "cwd": "/home/biophys2/Documents/AMP_Project/db/UniProt/test",
+            "console": "integratedTerminal",
+            "debugOptions": [
+                "WaitOnAbnormalExit",
+                "WaitOnNormalExit"
+            ]
+        },
+        {
             "name": "Python",
             "type": "python",
             "request": "launch",
