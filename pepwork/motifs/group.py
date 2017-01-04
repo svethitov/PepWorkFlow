@@ -2,6 +2,7 @@
 import os
 import subprocess
 import math
+import time
 import numpy as np
 import pandas as pd
 from Bio import motifs
@@ -28,6 +29,8 @@ class Group:
                     -action +trim _seq_%%80'
         with open('trimmed.fasta', 'w') as trimmedfile:
             subprocess.run(command.split(), stdout=trimmedfile)
+        # Read sequences that will be used from MEME
+        self.trimmed_records = pepwork.extract.readfasta('trimmed.fasta')
         # Runs MEME
         min_seq = min([len(self.records[key].sequence) for key in self.records.keys()])
         print('Running MEME ...')
@@ -82,16 +85,17 @@ class GroupCollection():
         print('Populating dataframe ...')
         position = 0
         self.all_df = pd.DataFrame(columns=['KW', 'Group_idx', 'Motif_idx',\
-            'position', 'kw_pos'])
+            'position', 'kw_pos', 'ratio'])
         for kword in self.collections:
             kw_pos = 0
             for group in kword:
                 if group.motifs is not None:
                     for idx in range(0, len(group.motifs)):
                         if group.motifs[idx] is not None:
+                            ratio = len(group.motifs[idx].instances) / len(group.trimmed_records)
                             temp_df = pd.DataFrame(
-                                [[group.kword, group.idx, idx, position, kw_pos]],
-                                columns=['KW', 'Group_idx', 'Motif_idx', 'position', 'kw_pos']
+                                [[group.kword, group.idx, idx, position, kw_pos, ratio]],
+                                columns=['KW', 'Group_idx', 'Motif_idx', 'position', 'kw_pos', 'ratio']
                                 )
                             self.all_df = self.all_df.append(temp_df, ignore_index=True)
                             self.motifs.append(group.motifs[idx])
@@ -128,6 +132,7 @@ class GroupCollection():
         self.offset_df = pd.DataFrame(index=index_list, columns=index_list)
 
         # Populates distance_df and offset_df
+        print('Starting calculation of distances and offset on {}'.format(time.ctime()))
         for idx in range(0, len(self.all_df)):
             for next_idx in range(idx, len(self.all_df)):
                 row_label = '{}_{}_{}'.format(self.all_df.KW.iloc[idx], \
@@ -137,14 +142,15 @@ class GroupCollection():
                     self.all_df.Group_idx.iloc[next_idx],\
                     self.all_df.Motif_idx.iloc[next_idx])
                 if row_label != column_label:
-                    print('Calculating correlation for {} vs. {} ...'.\
-                        format(row_label, column_label))
+                    #print('Calculating correlation for {} vs. {} ...'.\
+                    #    format(row_label, column_label))
                     distance, offset = self.motifs[idx].pssm.\
                         dist_pearson(self.motifs[next_idx].pssm)
                     self.distance_df.set_value(row_label, column_label, distance)
                     self.distance_df.set_value(column_label, row_label, distance)
                     self.offset_df.set_value(row_label, column_label, offset)
                     self.offset_df.set_value(column_label, row_label, (- offset))
+        print('Calculation of distances and offset done on {}'.format(time.ctime()))
 
     def _write_links(self, handle, thickness, color, z, idx, second_idx, kw_dict):
         '''Writes a link to file'''
@@ -226,7 +232,7 @@ class GroupCollection():
             for idx, kword in enumerate(self.all_df.KW.unique()):
                 temp_df = self.all_df.loc[lambda df: df.KW == kword]
                 start = 0
-                color = 'vlgrey_a3'
+                color = 'vlgrey_a1'
                 for group in temp_df.Group_idx.unique():
                     stop = max(temp_df.loc[lambda df: df.Group_idx == group, 'kw_pos']) + 1
                     myfile.write('band kw{} group{} group{} {} {} {}\n'.format(
@@ -294,37 +300,70 @@ class GroupCollection():
             for idx in range(0, len(self.motifs)):
                 self._write_data_line(myfile, kw_dict, idx, idx)
 
+        # Writing ratio.txt
+        print('Writing ratio.txt ...')
+        with open('ratio.txt', 'w') as myfile:
+            for idx in range(0, len(self.motifs)):
+                if self.all_df.iloc[idx].loc['ratio'] > 0.89:
+                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-9_a5')
+                elif self.all_df.iloc[idx].loc['ratio'] > 0.78:
+                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-8_a5')
+                elif self.all_df.iloc[idx].loc['ratio'] > 0.67:
+                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-7_a5')
+                elif self.all_df.iloc[idx].loc['ratio'] > 0.56:
+                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-6_a5')
+                elif self.all_df.iloc[idx].loc['ratio'] > 0.45:
+                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-5_a5')
+                elif self.all_df.iloc[idx].loc['ratio'] > 0.34:
+                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-4_a5')
+                elif self.all_df.iloc[idx].loc['ratio'] > 0.23:
+                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-3_a5')
+                elif self.all_df.iloc[idx].loc['ratio'] > 0.12:
+                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-2_a5')
+                else:
+                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-1_a5')
+
         # Writing links.txt file
         print('Writing links.txt file ...')
         with open('links.txt', 'w') as myfile:
             for idx in range(0, len(self.motifs)):
                 for second_idx in range(idx, len(self.motifs)):
-                    if self.distance_df.iloc[idx, second_idx] < 0.05:
+                    if self.distance_df.iloc[idx, second_idx] < 0.04:
                         self._write_links(
                             handle=myfile,
-                            thickness=4,
-                            color='reds-9-seq-9',
+                            thickness=3,
+                            color='rdylgn-9-div-1',
                             z=80,
                             idx=idx,
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
-                    elif self.distance_df.iloc[idx, second_idx] < 0.1:
+                    elif self.distance_df.iloc[idx, second_idx] < 0.08:
                         self._write_links(
                             handle=myfile,
-                            thickness=4,
-                            color='reds-9-seq-8',
+                            thickness=2,
+                            color='rdylgn-9-div-2',
                             z=70,
                             idx=idx,
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
-                    elif self.distance_df.iloc[idx, second_idx] < 0.15:
+                    elif self.distance_df.iloc[idx, second_idx] < 0.12:
                         self._write_links(
                             handle=myfile,
-                            thickness=3,
-                            color='reds-9-seq-7',
+                            thickness=1,
+                            color='rdylgn-9-div-3',
                             z=60,
+                            idx=idx,
+                            second_idx=second_idx,
+                            kw_dict=kw_dict
+                        )
+                    elif self.distance_df.iloc[idx, second_idx] < 0.16:
+                        self._write_links(
+                            handle=myfile,
+                            thickness=1,
+                            color='rdylgn-9-div-4',
+                            z=50,
                             idx=idx,
                             second_idx=second_idx,
                             kw_dict=kw_dict
@@ -332,58 +371,48 @@ class GroupCollection():
                     elif self.distance_df.iloc[idx, second_idx] < 0.20:
                         self._write_links(
                             handle=myfile,
-                            thickness=3,
-                            color='reds-9-seq-6',
-                            z=50,
-                            idx=idx,
-                            second_idx=second_idx,
-                            kw_dict=kw_dict
-                        )
-                    elif self.distance_df.iloc[idx, second_idx] < 0.25:
-                        self._write_links(
-                            handle=myfile,
-                            thickness=2,
-                            color='reds-9-seq-5',
+                            thickness=1,
+                            color='rdylgn-9-div-5',
                             z=40,
                             idx=idx,
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
-                    elif self.distance_df.iloc[idx, second_idx] < 0.30:
+                    elif self.distance_df.iloc[idx, second_idx] < 0.24:
                         self._write_links(
                             handle=myfile,
-                            thickness=2,
-                            color='reds-9-seq-4',
+                            thickness=1,
+                            color='rdylgn-9-div-6',
                             z=30,
                             idx=idx,
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
-                    elif self.distance_df.iloc[idx, second_idx] < 0.35:
+                    elif self.distance_df.iloc[idx, second_idx] < 0.28:
                         self._write_links(
                             handle=myfile,
                             thickness=1,
-                            color='reds-9-seq-3_a1',
+                            color='rdylgn-9-div-7_a1',
                             z=20,
                             idx=idx,
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
-                    elif self.distance_df.iloc[idx, second_idx] < 0.40:
+                    elif self.distance_df.iloc[idx, second_idx] < 0.32:
                         self._write_links(
                             handle=myfile,
                             thickness=1,
-                            color='reds-9-seq-2_a2',
+                            color='rdylgn-9-div-8_a2',
                             z=10,
                             idx=idx,
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
-                    elif self.distance_df.iloc[idx, second_idx] < 0.45:
+                    elif self.distance_df.iloc[idx, second_idx] < 0.36:
                         self._write_links(
                             handle=myfile,
                             thickness=1,
-                            color='reds-9-seq-1_a3',
+                            color='rdylgn-9-div-9_a5',
                             z=0,
                             idx=idx,
                             second_idx=second_idx,

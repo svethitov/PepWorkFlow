@@ -161,6 +161,11 @@ def writefasta(seqrecords: OrderedDict, filename):
     SeqIO.write(workingseqs, filename, 'fasta')
     print('File written ...')
 
+def readfasta(filename):
+    '''Read records from fasta file'''
+    return [record for record in SeqIO.parse(filename, 'fasta')]
+
+
 def itertodict(seqset: iter):
     '''Converts Set to Ordered Dictionary'''
     seqdict = OrderedDict()

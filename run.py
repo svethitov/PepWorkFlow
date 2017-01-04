@@ -2,10 +2,12 @@
 '''Workflow for Peptide clustering and alignment'''
 
 import os
+import time
 from pepwork.uniprotcollection import UniProtCollection
 
 def main():
     '''Main function for the WorkFlow'''
+    print('Started on {}'.format(time.ctime()))
     if os.path.isfile('records.bin'):
         mycollection = UniProtCollection('bin')
     elif os.path.isfile('records.list'):
@@ -21,7 +23,7 @@ def main():
     mycollection.plot_dendrogram()
     mycollection.save_groups()
     print()
-    print('Job Done.')
+    print('Job Done on {}'.format(time.ctime()))
 
 
 if __name__ == '__main__':
