@@ -3,12 +3,17 @@ import os
 import subprocess
 import math
 import time
+from multiprocessing import pool
 import numpy as np
 import pandas as pd
 from Bio import motifs
 from Bio.motifs.jaspar import calculate_pseudocounts
 import pepwork.extract
-from pepwork.plots import hist
+from pepwork.plots import hist, plot_scattermatrix
+
+def _distance_offset(work_chunk):
+    '''Helper function for multithreding'''
+    return work_chunk[0].dist_pearson(work_chunk[1])
 
 class Group:
     '''Class holding expanded records list and there motifs'''
@@ -95,7 +100,8 @@ class GroupCollection():
                             ratio = len(group.motifs[idx].instances) / len(group.trimmed_records)
                             temp_df = pd.DataFrame(
                                 [[group.kword, group.idx, idx, position, kw_pos, ratio]],
-                                columns=['KW', 'Group_idx', 'Motif_idx', 'position', 'kw_pos', 'ratio']
+                                columns=\
+                                ['KW', 'Group_idx', 'Motif_idx', 'position', 'kw_pos', 'ratio']
                                 )
                             self.all_df = self.all_df.append(temp_df, ignore_index=True)
                             self.motifs.append(group.motifs[idx])
@@ -116,10 +122,12 @@ class GroupCollection():
 
         self.distance_df = None
         self.offset_df = None
+        self.stats = None
 
 
     def compare(self):
         '''Make pairwise comparison of all motifs'''
+
         index_list = []
         for row in range(0, len(self.all_df)):
             index_list.append('{}_{}_{}'.format(
@@ -132,6 +140,7 @@ class GroupCollection():
         self.offset_df = pd.DataFrame(index=index_list, columns=index_list)
 
         # Populates distance_df and offset_df
+        work_list = []
         print('Starting calculation of distances and offset on {}'.format(time.ctime()))
         for idx in range(0, len(self.all_df)):
             for next_idx in range(idx, len(self.all_df)):
@@ -144,12 +153,21 @@ class GroupCollection():
                 if row_label != column_label:
                     #print('Calculating correlation for {} vs. {} ...'.\
                     #    format(row_label, column_label))
-                    distance, offset = self.motifs[idx].pssm.\
-                        dist_pearson(self.motifs[next_idx].pssm)
-                    self.distance_df.set_value(row_label, column_label, distance)
-                    self.distance_df.set_value(column_label, row_label, distance)
-                    self.offset_df.set_value(row_label, column_label, offset)
-                    self.offset_df.set_value(column_label, row_label, (- offset))
+                    work_list.append((self.motifs[idx].pssm, self.motifs[next_idx].pssm,
+                                      row_label, column_label))
+
+        print('Working list populated on {}'.format(time.ctime()))
+
+        with pool.Pool(30) as mypool:
+            answers_list = mypool.map(_distance_offset, work_list)
+
+        print('Calculation finished on {}'.format(time.ctime()))
+        print('Now populating distance and offset dataaframes ...')
+        for idx in range(0, len(work_list)):
+            self.distance_df.set_value(work_list[idx][2], work_list[idx][3], answers_list[idx][0])
+            self.distance_df.set_value(work_list[idx][3], work_list[idx][2], answers_list[idx][0])
+            self.offset_df.set_value(work_list[idx][2], work_list[idx][3], answers_list[idx][1])
+            self.offset_df.set_value(work_list[idx][3], work_list[idx][2], (- answers_list[idx][1]))
         print('Calculation of distances and offset done on {}'.format(time.ctime()))
 
     def _write_links(self, handle, thickness, color, z, idx, second_idx, kw_dict):
@@ -214,16 +232,23 @@ class GroupCollection():
 
     def write_circos_files(self):
         '''Writes data files ready for import in circos'''
+
+        # init dataframe for stats of motifs
+        self.stats = pd.DataFrame(
+            index=range(0, len(self.motifs)),
+            columns=['Length', 'Hits', 'E value', 'Ratio', 'Links', 'KWord'])
+
+        self.stats['KWord'] = self.all_df['KW']
         # Writing 'chromosomes' file
         print('Writing "chromosomes" file ...')
         with open('chr.txt', 'w') as myfile:
             for idx, kword in enumerate(self.all_df.KW.unique()):
-                myfile.write('chr - kw{} {} {} {} color_kw{}\n'.format(
+                myfile.write('chr - kw{} {} {} {} color_{}\n'.format(
                     idx,
                     kword,
                     0,
                     max(self.all_df.loc[lambda df: df.KW == kword, 'kw_pos']) + 1,
-                    idx
+                    kword
                 ))
 
         # adding 'bands' to 'chromosome' file
@@ -232,7 +257,7 @@ class GroupCollection():
             for idx, kword in enumerate(self.all_df.KW.unique()):
                 temp_df = self.all_df.loc[lambda df: df.KW == kword]
                 start = 0
-                color = 'vlgrey_a1'
+                color = 'lgrey_a1'
                 for group in temp_df.Group_idx.unique():
                     stop = max(temp_df.loc[lambda df: df.Group_idx == group, 'kw_pos']) + 1
                     myfile.write('band kw{} group{} group{} {} {} {}\n'.format(
@@ -267,7 +292,7 @@ class GroupCollection():
             if value == 0:
                 evalue[idx] = min(evalue)
 
-        # get all  far outliers trimmed
+        # get all far outliers trimmed
         evalue = self._trim_outliers(evalue)
 
         evalue = [value/np.min(evalue) for value in evalue]
@@ -275,6 +300,7 @@ class GroupCollection():
         with open('evalue.txt', 'w') as myfile:
             for idx, value in enumerate(evalue):
                 self._write_data_line(myfile, kw_dict, idx, value)
+                self.stats.set_value(idx, 'E value', value)
 
         # writing num_occurences file
         print('Writing num_occurences.txt file ...')
@@ -284,6 +310,7 @@ class GroupCollection():
         with open('num_occurences.txt', 'w') as myfile:
             for idx, value in enumerate(num_occurences):
                 self._write_data_line(myfile, kw_dict, idx, value)
+                self.stats.set_value(idx, 'Hits', value)
 
         # Writing lengths.txt
         print('Writing lengths.txt ...')
@@ -293,6 +320,7 @@ class GroupCollection():
         with open('lengths.txt', 'w') as myfile:
             for idx, value in enumerate(lengths):
                 self._write_data_line(myfile, kw_dict, idx, value)
+                self.stats.set_value(idx, 'Length', value)
 
         # Writing text_labels.txt
         print('Writing text_labels.txt ...')
@@ -304,26 +332,13 @@ class GroupCollection():
         print('Writing ratio.txt ...')
         with open('ratio.txt', 'w') as myfile:
             for idx in range(0, len(self.motifs)):
-                if self.all_df.iloc[idx].loc['ratio'] > 0.89:
-                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-9_a5')
-                elif self.all_df.iloc[idx].loc['ratio'] > 0.78:
-                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-8_a5')
-                elif self.all_df.iloc[idx].loc['ratio'] > 0.67:
-                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-7_a5')
-                elif self.all_df.iloc[idx].loc['ratio'] > 0.56:
-                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-6_a5')
-                elif self.all_df.iloc[idx].loc['ratio'] > 0.45:
-                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-5_a5')
-                elif self.all_df.iloc[idx].loc['ratio'] > 0.34:
-                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-4_a5')
-                elif self.all_df.iloc[idx].loc['ratio'] > 0.23:
-                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-3_a5')
-                elif self.all_df.iloc[idx].loc['ratio'] > 0.12:
-                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-2_a5')
-                else:
-                    self._write_data_line(myfile, kw_dict, idx, 'fill_color=rdylgn-9-div-1_a5')
+                self._write_data_line(myfile, kw_dict, idx, self.all_df.iloc[idx].loc['ratio'])
+                self.stats.set_value(idx, 'Ratio', self.all_df.iloc[idx].loc['ratio'])
+
 
         # Writing links.txt file
+        links_dict = {key: 0 for key in range(0, len(self.motifs))}
+
         print('Writing links.txt file ...')
         with open('links.txt', 'w') as myfile:
             for idx in range(0, len(self.motifs)):
@@ -338,6 +353,8 @@ class GroupCollection():
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
+                        links_dict[idx] += 1
+                        links_dict[second_idx] += 1
                     elif self.distance_df.iloc[idx, second_idx] < 0.08:
                         self._write_links(
                             handle=myfile,
@@ -348,6 +365,8 @@ class GroupCollection():
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
+                        links_dict[idx] += 1
+                        links_dict[second_idx] += 1
                     elif self.distance_df.iloc[idx, second_idx] < 0.12:
                         self._write_links(
                             handle=myfile,
@@ -358,6 +377,8 @@ class GroupCollection():
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
+                        links_dict[idx] += 1
+                        links_dict[second_idx] += 1
                     elif self.distance_df.iloc[idx, second_idx] < 0.16:
                         self._write_links(
                             handle=myfile,
@@ -368,21 +389,25 @@ class GroupCollection():
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
+                        links_dict[idx] += 1
+                        links_dict[second_idx] += 1
                     elif self.distance_df.iloc[idx, second_idx] < 0.20:
                         self._write_links(
                             handle=myfile,
                             thickness=1,
-                            color='rdylgn-9-div-5',
+                            color='rdylgn-9-div-5_a1',
                             z=40,
                             idx=idx,
                             second_idx=second_idx,
                             kw_dict=kw_dict
                         )
+                        links_dict[idx] += 1
+                        links_dict[second_idx] += 1
                     elif self.distance_df.iloc[idx, second_idx] < 0.24:
                         self._write_links(
                             handle=myfile,
                             thickness=1,
-                            color='rdylgn-9-div-6',
+                            color='rdylgn-9-div-6_a2',
                             z=30,
                             idx=idx,
                             second_idx=second_idx,
@@ -392,7 +417,7 @@ class GroupCollection():
                         self._write_links(
                             handle=myfile,
                             thickness=1,
-                            color='rdylgn-9-div-7_a1',
+                            color='rdylgn-9-div-7_a3',
                             z=20,
                             idx=idx,
                             second_idx=second_idx,
@@ -402,7 +427,7 @@ class GroupCollection():
                         self._write_links(
                             handle=myfile,
                             thickness=1,
-                            color='rdylgn-9-div-8_a2',
+                            color='rdylgn-9-div-8_a4',
                             z=10,
                             idx=idx,
                             second_idx=second_idx,
@@ -419,6 +444,46 @@ class GroupCollection():
                             kw_dict=kw_dict
                         )
 
+        # adds links_dict to self.stats
+        for key in links_dict.keys():
+            self.stats.set_value(key, 'Links', links_dict[key])
+
+        ## Here start tiles file generation
+        print('Writing tiles files ...')
+        all_records = {} # dict holding all records
+        for kword in self.collections:
+            for group in kword:
+                for key in group.records.keys():
+                    all_records[key] = group.records[key]
+
+        # Writes all used records to a file
+        with open('used_records.txt', 'w') as myfile:
+            for key in all_records.keys():
+                myfile.write('{}\n'.format(key))
+
+        all_keywords = ['Lantibiotic', 'Bacteriocin', 'Antibiotic',
+                        'Bacteriolytic enzyme', 'Defensin', 'Fungicide']
+        all_keywords = set(all_keywords)
+
+        handles = {}
+        for kword in all_keywords:
+            handles[kword] = open('{}_tile.txt'.format(kword), 'w')
+
+        for idx, motif in enumerate(self.motifs):
+            motif_sequences_names = [instance.sequence_name for instance in motif.instances]
+            motif_kwords = set()
+            for sequence in motif_sequences_names:
+                for kword in all_records[sequence].keywords:
+                    motif_kwords.add(kword)
+            motif_kwords = motif_kwords.intersection(all_keywords)
+            motif_kwords = motif_kwords.difference(set([self.all_df.KW.iloc[idx]]))
+
+            for motif_kword in motif_kwords:
+                self._write_data_line(handles[motif_kword], kw_dict, idx, '')
+
+        for handle in handles.values():
+            handle.close()
+
 
     def plot_hist(self, mode='distance', filename='distance.html'):
         '''Plots histogram of distances between motifs'''
@@ -430,3 +495,7 @@ class GroupCollection():
                 elif mode == 'offset':
                     values.append(self.offset_df.iloc[idx, second_idx])
         hist(values, filename)
+
+    def plot_scattermatrix(self):
+        '''Plots Scatterplot Matrix'''
+        plot_scattermatrix(self.stats, 'KWord', 'ScatterMatrix.html')

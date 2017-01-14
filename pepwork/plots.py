@@ -2,6 +2,7 @@
 
 from plotly.offline import plot
 import plotly.graph_objs as go
+from plotly.tools import FigureFactory as FF
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram
 
@@ -166,7 +167,7 @@ def plot3dscatter(clusters, filename, outliers=None):
         ])
     )
     fig = go.Figure(data=data, layout=layout)
-    plot(fig, '3dscatter.html')
+    plot(fig, filename=filename)
 
 def hist(vector, filename):
     '''Plots histogram using plotly'''
@@ -195,3 +196,24 @@ def clustersdendrogram(data, labels, nodecolor):
         link_color_func=color_func
     )
     plt.savefig('dendrogram.eps', format='eps', dpi=900)
+
+def plot_scattermatrix(data, index, filename):
+    '''Plots scatter matrix based on Pandas DataFrame'''
+    fig = FF.create_scatterplotmatrix(
+        data,
+        index=index,
+        diag='box',
+        colormap=dict(
+            Antimicrobial='rgb(87,128,202)',
+            Antibiotic='rgb(191,126,95)',
+            Fungicide='rgb(160,183,85)',
+            Defensin='rgb(104,73,173)',
+            Bacteriolytic='rgb(236,216,29)',
+            Bacteriocin='rgb(236,172,29)',
+            Lantibiotic='rgb(249,51,9)'
+        ),
+        height=1200,
+        width=1200,
+        colormap_type='cat'
+    )
+    plot(fig, filename=filename)
