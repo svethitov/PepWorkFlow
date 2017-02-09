@@ -1,19 +1,44 @@
 '''Group Class'''
+import copy
 import os
-import subprocess
 import math
+import random
+import subprocess
 import time
 from multiprocessing import pool
 import numpy as np
 import pandas as pd
 from Bio import motifs
 from Bio.motifs.jaspar import calculate_pseudocounts
+from Bio import SeqIO, Seq
 import pepwork.extract
 from pepwork.plots import hist, plot_scattermatrix
 
 def _distance_offset(work_chunk):
     '''Helper function for multithreding'''
     return work_chunk[0].dist_pearson(work_chunk[1])
+
+def _run_meme(min_len, kword, idx, cluster_idx, scramble):
+    '''Initinates meme motif search'''
+    print('Running MEME ...')
+    command = 'meme trimmed_{}.fasta -mod zoops -nmotifs 8 -evt 0.00005\
+                -maxw {} -maxiter 1000 -o meme_{}_{}_{}_{}'.\
+                    format(scramble, min_len, kword, idx, cluster_idx, scramble)
+    subprocess.run(command.split())
+
+def _read_motifs(kword, idx, cluster_idx, scramble):
+    '''Reads motifs from MEME output'''
+    os.chdir('meme_{}_{}_{}_{}'.format(kword, idx, cluster_idx, scramble))
+    with open('meme.txt') as motifs_file:
+        try:
+            meme_motifs = motifs.parse(motifs_file, 'meme')
+        except ValueError:
+            meme_motifs = None
+            print('No motifs found ...')
+    os.chdir(os.pardir)
+    return meme_motifs
+
+
 
 class Group:
     '''Class holding expanded records list and there motifs'''
@@ -32,28 +57,40 @@ class Group:
         print('Removing redundant sequences ...')
         command = 't_coffee -other_pg seq_reformat -in working.fasta \
                     -action +trim _seq_%%80'
-        with open('trimmed.fasta', 'w') as trimmedfile:
+        with open('trimmed_0.fasta', 'w') as trimmedfile:
             subprocess.run(command.split(), stdout=trimmedfile)
         # Read sequences that will be used from MEME
-        self.trimmed_records = pepwork.extract.readfasta('trimmed.fasta')
+        self.trimmed_records = pepwork.extract.readfasta('trimmed_0.fasta')
         # Runs MEME
-        min_seq = min([len(self.records[key].sequence) for key in self.records.keys()])
-        print('Running MEME ...')
-        command = 'meme trimmed.fasta -mod zoops -nmotifs 8 -evt 0.00005\
-                    -maxw {} -maxiter 1000 -o meme_{}_{}_{}'.\
-                      format(min_seq, self.kword, self.idx, self.cluster_idx)
-        subprocess.run(command.split())
+        min_len = min([len(self.records[key].sequence) for key in self.records.keys()])
+        _run_meme(min_len, self.kword, self.idx, self.cluster_idx, 0)
 
         # Read motifs
-        os.chdir('meme_{}_{}_{}'.format(self.kword, self.idx, self.cluster_idx))
-        with open('meme.txt') as motifs_file:
-            try:
-                self.motifs = motifs.parse(motifs_file, 'meme')
-            except ValueError:
-                self.motifs = None
-                print('No motifs found ...')
+        self.motifs = _read_motifs(self.kword, self.idx, self.cluster_idx, 0)
 
-        os.chdir(os.pardir)
+        ## Now Scramble sequences and run MEME on the scrambled ones
+        self.scrambled = []
+        self.motifs_scrambled = []
+        for scrambling in range(0, 3):
+            self.scrambled.append(copy.deepcopy(self.trimmed_records))
+            for idx in range(0, len(self.scrambled[scrambling])):
+                self.scrambled[scrambling][idx].seq = Seq.Seq(
+                    ''.join(random.sample(
+                        list(self.scrambled[scrambling][idx].seq),
+                        len(self.scrambled[scrambling][idx].seq)
+                    ))
+                )
+
+
+            SeqIO.write(
+                self.scrambled[scrambling],
+                'trimmed_{}.fasta'.format(scrambling + 1),
+                'fasta'
+            )
+            _run_meme(min_len, self.kword, self.idx, self.cluster_idx, scrambling + 1)
+            self.motifs_scrambled.append(
+                _read_motifs(self.kword, self.idx, self.cluster_idx, scrambling + 1)
+            )
 
 
 class GroupCollection():
@@ -162,7 +199,7 @@ class GroupCollection():
             answers_list = mypool.map(_distance_offset, work_list)
 
         print('Calculation finished on {}'.format(time.ctime()))
-        print('Now populating distance and offset dataaframes ...')
+        print('Now populating distance and offset dataframes ...')
         for idx in range(0, len(work_list)):
             self.distance_df.set_value(work_list[idx][2], work_list[idx][3], answers_list[idx][0])
             self.distance_df.set_value(work_list[idx][3], work_list[idx][2], answers_list[idx][0])

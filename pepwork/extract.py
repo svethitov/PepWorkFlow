@@ -165,9 +165,17 @@ def readfasta(filename):
     '''Read records from fasta file'''
     return [record for record in SeqIO.parse(filename, 'fasta')]
 
+def itertodict_seqrecords(seq_iter: iter):
+    '''Converts List or Set returned from readfasta
+    to dictionary ready for writefasta'''
+    seqdict = OrderedDict()
+    for record in seq_iter:
+        seqdict[record.id] = record
+    return seqdict
+
 
 def itertodict(seqset: iter):
-    '''Converts Set to Ordered Dictionary'''
+    '''Converts Set or List of SwissProt records to Ordered Dictionary'''
     seqdict = OrderedDict()
     for record in seqset:
         seqdict[record.accessions[0]] = record

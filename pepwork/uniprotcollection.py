@@ -191,7 +191,7 @@ class UniProtCollection:
             group_idx += 1
 
         os.chdir(os.pardir) # get back to root dir
-        # Creates gropus from outliers
+        # Creates groups from outliers
         os.chdir('blast')
         print('Creating groups from outliers ...')
         for idx, outlier in enumerate(self.outliers.get_keys()):
